@@ -1,0 +1,105 @@
+{
+  "$schema": "mongodb-schema-v1",
+  "database": "dissertacao_angola",
+  "collections": {
+    "publicacoes_brutas": {
+      "description": "Publicações recolhidas pelas APIs (dados brutos)",
+      "fields": {
+        "id_externo": {
+          "type": "string",
+          "description": "ID único da plataforma"
+        },
+        "texto": {
+          "type": "string",
+          "description": "Texto da publicação"
+        },
+        "data": {
+          "type": "string",
+          "description": "Data de publicação (ISO 8601)"
+        },
+        "plataforma": {
+          "type": "string",
+          "enum": [
+            "twitter",
+            "facebook",
+            "telegram",
+            "web"
+          ]
+        },
+        "recolhido_em": {
+          "type": "string",
+          "description": "Timestamp de recolha (UTC)"
+        },
+        "preprocessado": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "publicacoes_processadas": {
+      "description": "Publicações após pré-processamento e anonimização",
+      "fields": {
+        "id_externo": {
+          "type": "string"
+        },
+        "id_anonimizado": {
+          "type": "string",
+          "description": "SHA-256 do ID original (Lei 22/11)"
+        },
+        "texto_original": {
+          "type": "string"
+        },
+        "texto_processado": {
+          "type": "string",
+          "description": "Texto limpo e lematizado"
+        },
+        "num_tokens": {
+          "type": "integer"
+        },
+        "plataforma": {
+          "type": "string"
+        },
+        "classificado": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "publicacoes_classificadas": {
+      "description": "Resultado da classificação pelos modelos de IA",
+      "fields": {
+        "id_externo": {
+          "type": "string"
+        },
+        "categoria": {
+          "type": "string",
+          "enum": [
+            "Normal",
+            "Desinformação",
+            "Discurso de Ódio",
+            "Mobilização Hostil"
+          ]
+        },
+        "confianca_bert": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "alerta_emitido": {
+          "type": "boolean"
+        },
+        "modelo": {
+          "type": "string"
+        },
+        "classificado_em": {
+          "type": "string"
+        },
+        "distribuicao_prob": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "author": "Manuel Muinga — UAN 2026",
+  "github": "https://github.com/manuelmuinga/dissertacao-uan-angola"
+}
