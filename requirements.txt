@@ -1,20 +1,31 @@
 # ============================================================
 # Dissertação UAN — Monitoramento de Ameaças em Redes Sociais
-# requirements.txt — Python 3.11
+# requirements.txt — Python 3.11 | Windows 10/11 (64-bit)
+# ============================================================
+#
+# INSTALAÇÃO NO WINDOWS:
+# 1. Instalar Python 3.11 de https://www.python.org/downloads/
+#    (marcar "Add Python to PATH" durante a instalacao)
+# 2. Abrir Linha de Comandos (CMD) ou PowerShell como Administrador
+# 3. pip install -r requirements.txt
+# 4. python -m spacy download pt_core_news_lg
+#
+# PyTorch com GPU NVIDIA (opcional — treino mais rapido):
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#   Requer: CUDA Toolkit 11.8 — https://developer.nvidia.com/cuda-11-8-0-download-archive
+#
+# PyTorch CPU (sem GPU):
+#   pip install torch torchvision torchaudio
 # ============================================================
 
 # === APIs e Recolha de Dados ===
 tweepy==4.14.0
-facebook-sdk==3.1.0
-python-telegram-bot==20.7
 requests==2.31.0
 beautifulsoup4==4.12.2
-selenium==4.15.2
-scrapy==2.11.0
+python-dotenv==1.0.0
+python-telegram-bot==20.7
 
-# === Processamento de Dados e Big Data ===
-pyspark==3.4.1
-kafka-python==2.0.2
+# === Processamento de Dados ===
 pandas==2.1.3
 numpy==1.26.2
 scipy==1.11.4
@@ -22,28 +33,32 @@ scipy==1.11.4
 # === PLN e Machine Learning ===
 spacy==3.6.1
 transformers==4.35.2
-torch==2.1.0
+# torch — instalar separadamente (ver instrucoes acima)
 tensorflow==2.13.0
-keras==2.13.1
 scikit-learn==1.3.2
 imbalanced-learn==0.11.0
 
 # === Bases de Dados ===
 pymongo==4.6.0
-pyodbc==5.0.1
+pyodbc==5.0.1          # Driver ODBC para SQL Server no Windows
 sqlalchemy==2.0.23
 
-# === Visualização e Avaliação ===
+# === Visualizacao ===
 matplotlib==3.8.2
 seaborn==0.13.0
 plotly==5.18.0
 
-# === Utilitários ===
-python-dotenv==1.0.0
+# === Utilitarios ===
 loguru==0.7.2
 tqdm==4.66.1
 joblib==1.3.2
+kafka-python==2.0.2    # Cliente Kafka (sem necessidade de Java no Windows)
 
-# === Instalação ===
-# pip install -r requirements.txt
-# python -m spacy download pt_core_news_lg
+# ============================================================
+# NOTA SOBRE KAFKA NO WINDOWS:
+# O Apache Kafka requer Java. Opcoes:
+#   1. WSL2 (recomendado): instalar Ubuntu via WSL2 e executar Kafka la
+#   2. Docker Desktop: docker run -p 9092:9092 confluentinc/cp-kafka
+#   3. Kafka em Python puro: usar kafka-python como cliente
+#      (o servidor Kafka corre em WSL2 ou Docker)
+# ============================================================
