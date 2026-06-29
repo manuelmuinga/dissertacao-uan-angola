@@ -1,7 +1,7 @@
 # 🔍 Monitoramento Inteligente de Ameaças em Redes Sociais em Angola
 
 **Dissertação de Mestrado — Universidade Agostinho Neto (UAN)**  
-**Faculdade de Engenharia — Engenharia Informática e Ciência de Dados**  
+**Faculdade de Engenharia — Engenharia e Ciência de Dados**  
 **Autor:** Manuel Muinga | **Ano:** 2026
 
 ---
