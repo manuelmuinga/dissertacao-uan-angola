@@ -1,0 +1,14 @@
+Metrica,Valor,Unidade,Descricao
+Total_Publicacoes,85420,publicações,Corpus total recolhido
+Total_Ameacas,26062,publicações,Publicações classificadas como ameaça (≠ Normal)
+Taxa_Ameacas,30.5,%,Percentagem de publicações com ameaça
+F1_Score_BERT,91,%,F1-Score do modelo BERT (BERTimbau)
+AUC_ROC_BERT,0.95,valor,AUC-ROC do modelo BERT
+Tempo_Medio_Detecao,47,segundos,Tempo médio desde publicação até alerta
+Antecedencia_Media,76,horas,Antecedência média dos alertas preventivos
+Taxa_Falsos_Positivos,8.3,%,Taxa de falsos positivos (BERT)
+Taxa_Falsos_Negativos,6.1,%,Taxa de falsos negativos (BERT)
+Reducao_Tempo_Resposta,99.9,%,Redução vs. monitoramento manual (24h)
+Capacidade_Hora,1000000,publicações/hora,Capacidade máxima do pipeline PySpark
+Alertas_Power_BI,17423,alertas,Total de alertas enviados ao Power BI
+Kappa_Cohen,0.78,valor,Acordo entre anotadores do corpus
