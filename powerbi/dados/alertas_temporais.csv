@@ -1,0 +1,18 @@
+Data,Hora,Plataforma,Categoria,Confianca,Provincia,Alerta,Horas_Antecedencia,Segundos_Detecao
+2025-08-01,08:23,facebook,Mobilizacao Hostil,0.89,Luanda,1,96,42
+2025-08-01,09:11,telegram,Desinformacao,0.94,Luanda,1,94,38
+2025-08-01,11:45,twitter,Normal,0.82,Luanda,0,0,51
+2025-08-02,07:33,facebook,Discurso de Odio,0.71,Benguela,0,0,45
+2025-08-02,10:22,telegram,Desinformacao,0.91,Luanda,1,88,39
+2025-08-03,06:15,facebook,Mobilizacao Hostil,0.88,Luanda,1,84,47
+2025-08-04,08:44,twitter,Desinformacao,0.79,Cabinda,1,80,52
+2025-08-05,07:12,telegram,Mobilizacao Hostil,0.93,Luanda,1,76,41
+2025-08-06,09:33,facebook,Discurso de Odio,0.85,Luanda,1,72,44
+2025-08-07,06:55,web,Desinformacao,0.87,Malanje,1,68,49
+2025-08-08,10:11,telegram,Mobilizacao Hostil,0.91,Luanda,1,64,43
+2025-08-09,08:22,facebook,Normal,0.76,Huambo,0,0,38
+2025-08-10,07:44,twitter,Mobilizacao Hostil,0.86,Luanda,1,60,46
+2025-08-11,09:05,telegram,Desinformacao,0.92,Luanda,1,56,40
+2025-08-12,08:33,facebook,Discurso de Odio,0.78,Benguela,1,52,55
+2025-08-13,07:21,web,Mobilizacao Hostil,0.89,Luanda,1,48,47
+2025-08-14,09:44,telegram,Desinformacao,0.95,Luanda,1,44,36
