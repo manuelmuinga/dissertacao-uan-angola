@@ -1,5 +1,5 @@
 # Medidas DAX — Dashboard Power BI
-# Dissertação: Monitoramento Inteligente de Ameaças em Angola — UAN 2026
+# Dissertação: Monitoramento Inteligente de Ameaças em redes sociais em Angola para a desefa nacional — UAN 2026
 # Autor: Manuel Muinga
 # GitHub: https://github.com/manuelmuinga/dissertacao-uan-angola
 
