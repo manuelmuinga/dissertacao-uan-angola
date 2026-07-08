@@ -1,0 +1,62 @@
+# ============================================================
+# requirements_osint.txt — Stack OSINT completo
+# Dissertação UAN — Manuel Muinga 2026
+# Sistema Operativo: Windows 10/11 | Google Colab Pro
+# ============================================================
+#
+# INSTALAÇÃO COMPLETA (Windows CMD como Administrador):
+#   pip install -r requirements_osint.txt
+#   playwright install chromium
+#   python modulo_01_osint_scrapers.py --modo teste
+#
+# ============================================================
+
+# === Scrapers assíncronos ===
+aiohttp==3.9.1              # HTTP assíncrono (base do Scrapy async)
+scrapy==2.11.0              # Spider framework para sites de notícias
+scrapy-playwright==0.0.33   # Integração Playwright com Scrapy
+playwright==1.40.0          # Browser automation (Facebook, Nitter)
+telethon==1.33.1            # Telegram MTProto (canais públicos sem bot)
+yt-dlp==2024.1.0            # YouTube + TikTok (sem API key)
+beautifulsoup4==4.12.2      # Parsing HTML
+
+# === Fila e orquestração ===
+redis==5.0.1                # Fila de URLs e controlo de duplicatas
+celery==5.3.6               # Worker distribuído (opcional para produção)
+asyncio-throttle==1.0.2     # Rate limiting assíncrono
+
+# === PLN e IA ===
+spacy==3.6.1                # Lematização (português)
+transformers==4.35.2        # BERTimbau
+torch==2.1.0                # PyTorch (treino GPU)
+tensorflow==2.13.0          # Bi-LSTM
+scikit-learn==1.3.2         # SVM, Random Forest, métricas
+imbalanced-learn==0.11.0    # SMOTE
+
+# === Big Data ===
+pyspark==3.4.1              # Processamento distribuído
+kafka-python==2.0.2         # Produtor/consumidor Kafka (opcional)
+
+# === Bases de dados ===
+pymongo[srv]==4.6.0         # MongoDB Atlas
+dnspython==2.4.2            # Resolução DNS para MongoDB SRV
+pyodbc==5.0.1               # SQL Server (Windows)
+sqlalchemy==2.0.23          # ORM
+
+# === Utilitários ===
+python-dotenv==1.0.0        # Variáveis de ambiente (.env)
+pandas==2.1.3               # Análise de dados
+numpy==1.26.2               # Cálculos numéricos
+matplotlib==3.8.2           # Visualização
+seaborn==0.13.0             # Gráficos estatísticos
+loguru==0.7.2               # Logging avançado
+tqdm==4.66.1                # Barras de progresso
+
+# ============================================================
+# APÓS INSTALAÇÃO:
+#   1. playwright install chromium
+#   2. python -m spacy download pt_core_news_lg
+#   3. Criar ficheiro .env com TELEGRAM_API_ID e TELEGRAM_API_HASH
+#      (obter em https://my.telegram.org → API development tools)
+#   4. python modulo_01_osint_scrapers.py --modo teste
+# ============================================================
