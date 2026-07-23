@@ -1,12 +1,14 @@
 .env
 *.session
-sessao_osint_angola.session
 logs/
 __pycache__/
 *.pyc
 *.pyo
 modelos/bert_finetuned/
 modelos/bilstm/
-graficos/*.png
-dados/corpus_completo/
+graficos/
 .scrapy/
+node_modules/
+*.egg-info/
+dist/
+build/
