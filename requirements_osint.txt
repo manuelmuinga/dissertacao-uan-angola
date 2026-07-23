@@ -1,30 +1,22 @@
 # ============================================================
-# requirements_osint.txt — Stack OSINT completo (v2 — Julho 2026)
+# requirements_osint.txt — Stack OSINT completo
+# Sistema Operativo: Windows 11 (64-bit) | Google Colab Pro
 # Dissertação UAN — Manuel Muinga 2026
 # ============================================================
-# ALTERAÇÃO v2: Telethon removido (passou a ser pago em 2025)
-# Telegram agora usa scraper t.me/s/ (aiohttp + BeautifulSoup)
-#
-# INSTALAÇÃO (Windows CMD como Administrador / Google Colab):
+# INSTALAÇÃO:
 #   pip install -r requirements_osint.txt
 #   playwright install chromium
 #   python -m spacy download pt_core_news_lg
-#   python modulos/modulo_01_osint_scrapers.py --modo teste
 # ============================================================
 
-# === Scrapers assíncronos (OSINT) ===
-aiohttp==3.9.1              # HTTP assíncrono (Scrapy-like + Telegram t.me/s/)
-beautifulsoup4==4.12.2      # Parsing HTML (sites notícias + t.me/s/ Telegram)
-lxml==5.1.0                 # Parser HTML rápido para BeautifulSoup
+# === Scrapers OSINT (sem APIs pagas) ===
+aiohttp==3.9.1              # HTTP assíncrono (notícias + Telegram t.me/s/)
+beautifulsoup4==4.12.2      # Parsing HTML
+lxml==5.1.0                 # Parser rápido (t.me/s/ Telegram)
 playwright==1.40.0          # Browser headless (Facebook + Nitter)
 yt-dlp==2024.1.0            # YouTube + TikTok (sem API key)
 python-dotenv==1.0.0        # Variáveis de ambiente (.env)
-
-# REMOVIDO: telethon (passou a ser pago em 2025)
-# SUBSTITUÍDO POR: aiohttp + BeautifulSoup via t.me/s/ (gratuito)
-
-# === Orquestração ===
-redis==5.0.1                # Fila de URLs e controlo de duplicatas (opcional)
+redis==5.0.1                # Fila de URLs e deduplicação (opcional)
 
 # === PLN e IA ===
 spacy==3.6.1                # Lematização português
@@ -35,22 +27,15 @@ scikit-learn==1.3.2         # SVM, Random Forest, métricas
 imbalanced-learn==0.11.0    # SMOTE
 
 # === Big Data ===
-pyspark==3.4.1              # Processamento distribuído
+pyspark==3.4.1              # Processamento distribuído (Google Colab)
 
 # === Bases de dados ===
 pymongo[srv]==4.6.0         # MongoDB Atlas
 dnspython==2.4.2            # Resolução DNS SRV
+pyodbc==5.0.1               # SQL Server Express (Windows 11)
 
 # === Análise e visualização ===
 pandas==2.1.3
 numpy==1.26.2
 matplotlib==3.8.2
 seaborn==0.13.0
-
-# ============================================================
-# APÓS INSTALAÇÃO:
-#   1. playwright install chromium
-#   2. python -m spacy download pt_core_news_lg
-#   3. Criar .env com MONGODB_URI (ver .env.exemplo)
-#   4. python modulos/modulo_01_osint_scrapers.py
-# ============================================================
