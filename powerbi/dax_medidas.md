@@ -1,182 +1,102 @@
 # Medidas DAX — Dashboard Power BI
-# Dissertação: Monitoramento Inteligente de Ameaças em redes sociais em Angola para a desefa nacional — UAN 2026
-# Autor: Manuel Muinga
-# GitHub: https://github.com/manuelmuinga/dissertacao-uan-angola
+## Dissertação UAN — Manuel Muinga 2026
 
-## Como usar
-# 1. Abrir Power BI Desktop
-# 2. Importar o ficheiro metricas_modelos.csv (em powerbi/dados/)
-# 3. Conectar ao SQL Server (factos_ameacas + dimensões)
-# 4. Criar as medidas abaixo em "Nova Medida"
+### KPIs Principais
 
----
-
-## PÁGINA 1 — Centro de Comando
-
-### Total de Ameaças Detetadas
 ```dax
+-- F1-Score BERT (Tabela 4.1)
+F1_Score_BERT =
+CALCULATE(
+    AVERAGE(metricas_modelos[f1]),
+    metricas_modelos[Modelo] = "BERT"
+)
+
+-- Total de Ameaças Detectadas
 Total_Ameacas =
 CALCULATE(
-    COUNT(factos_ameacas[id_externo]),
-    NOT(factos_ameacas[categoria] = "Normal")
+    COUNT(vw_ameacas_completo[id_facto]),
+    vw_ameacas_completo[categoria] <> "Normal"
 )
-```
 
-### Ameaças por Categoria (selecionada)
-```dax
-Ameacas_Categoria_Sel =
-CALCULATE(
-    COUNT(factos_ameacas[id_externo]),
-    NOT(factos_ameacas[categoria] = "Normal"),
-    ALLSELECTED(dim_categoria[categoria])
-)
-```
+-- Tempo Médio de Deteção (segundos)
+Tempo_Medio_Detecao =
+AVERAGE(vw_ameacas_completo[segundos_detecao])
 
-### Taxa de Deteção com >= 48 horas de Antecedência (H3)
-```dax
-Taxa_Antecipacao_48h =
+-- Antecedência Média (horas) — Hipótese H3
+Antecedencia_Media =
+AVERAGE(vw_ameacas_completo[horas_antecedencia])
+
+-- Verificação H3: % alertas com >= 48h antecedência
+Taxa_Antecedencia_48h =
 DIVIDE(
     CALCULATE(
-        COUNT(factos_ameacas[id_externo]),
-        factos_ameacas[horas_antecedencia] >= 48
+        COUNT(vw_ameacas_completo[id_facto]),
+        vw_ameacas_completo[horas_antecedencia] >= 48,
+        vw_ameacas_completo[alerta_emitido] = 1
     ),
     CALCULATE(
-        COUNT(factos_ameacas[id_externo]),
-        NOT(factos_ameacas[categoria] = "Normal")
-    ),
-    0
+        COUNT(vw_ameacas_completo[id_facto]),
+        vw_ameacas_completo[alerta_emitido] = 1
+    ), 0
 )
-```
 
-### Nível de Confiança Médio (BERT)
-```dax
+-- Redução vs. Monitoramento Manual (%) — Hipótese H2
+Reducao_Tempo =
+VAR Manual_seg = 86400
+VAR Sistema_seg = [Tempo_Medio_Detecao]
+RETURN DIVIDE(Manual_seg - Sistema_seg, Manual_seg, 0) * 100
+
+-- Total de Alertas Power BI
+Total_Alertas =
+CALCULATE(
+    COUNT(vw_ameacas_completo[id_facto]),
+    vw_ameacas_completo[alerta_emitido] = 1
+)
+
+-- Ameaças por Provincia (para mapa)
+Ameacas_Provincia =
+CALCULATE(
+    COUNT(vw_ameacas_completo[id_facto]),
+    vw_ameacas_completo[categoria] <> "Normal"
+)
+
+-- Confiança Média BERT
 Confianca_Media_BERT =
-AVERAGE(factos_ameacas[confianca_bert])
-```
-
-### Alertas nas Últimas 24 Horas
-```dax
-Alertas_24h =
 CALCULATE(
-    COUNT(factos_ameacas[id_externo]),
-    factos_ameacas[alerta_emitido] = 1,
-    factos_ameacas[data_classificacao] >= NOW() - 1
+    AVERAGE(vw_ameacas_completo[confianca]),
+    vw_ameacas_completo[categoria] <> "Normal"
 )
-```
 
-### Tempo Médio de Deteção (segundos)
-```dax
-Tempo_Medio_Detecao_seg =
-AVERAGE(factos_ameacas[segundos_para_detetar])
-```
-
----
-
-## PÁGINA 2 — Análise Histórica
-
-### Evolução Semanal de Ameaças
-```dax
-Ameacas_Semana =
-CALCULATE(
-    COUNT(factos_ameacas[id_externo]),
-    NOT(factos_ameacas[categoria] = "Normal"),
-    DATESINPERIOD(dim_tempo[data], LASTDATE(dim_tempo[data]), -7, DAY)
-)
-```
-
-### Variação vs. Semana Anterior (%)
-```dax
-Variacao_Semanal =
-VAR SemanaAtual =
-    CALCULATE(
-        COUNT(factos_ameacas[id_externo]),
-        NOT(factos_ameacas[categoria] = "Normal"),
-        DATESINPERIOD(dim_tempo[data], LASTDATE(dim_tempo[data]), -7, DAY)
-    )
-VAR SemanaAnterior =
-    CALCULATE(
-        COUNT(factos_ameacas[id_externo]),
-        NOT(factos_ameacas[categoria] = "Normal"),
-        DATESINPERIOD(dim_tempo[data], LASTDATE(dim_tempo[data]) - 7, -7, DAY)
-    )
+-- Nível de Risco (semáforo)
+Nivel_Risco =
+VAR pct = DIVIDE([Total_Ameacas],
+                 COUNT(vw_ameacas_completo[id_facto]), 0)
 RETURN
-    DIVIDE(SemanaAtual - SemanaAnterior, SemanaAnterior, 0)
+    IF(pct >= 0.4, "ALTO 🔴",
+    IF(pct >= 0.2, "MÉDIO 🟡", "BAIXO 🟢"))
 ```
 
-### Top Província com Mais Ameaças
+### Medidas para gráficos
+
 ```dax
-Top_Provincia =
-FIRSTNONBLANK(
-    TOPN(1,
-        SUMMARIZE(
-            FILTER(factos_ameacas, factos_ameacas[categoria] <> "Normal"),
-            dim_provincia[provincia],
-            "Total", COUNT(factos_ameacas[id_externo])
-        ),
-        [Total], DESC
-    ),
-    dim_provincia[provincia]
-)
-```
+-- Ameaças por Categoria (gráfico de barras)
+Ameacas_Desinformacao =
+CALCULATE([Total_Ameacas],
+    vw_ameacas_completo[categoria] = "Desinformacao")
 
----
+Ameacas_Odio =
+CALCULATE([Total_Ameacas],
+    vw_ameacas_completo[categoria] = "Discurso de Odio")
 
-## PÁGINA 3 — Relatório Executivo
+Ameacas_Mobilizacao =
+CALCULATE([Total_Ameacas],
+    vw_ameacas_completo[categoria] = "Mobilizacao Hostil")
 
-### F1-Score BERT (KPI)
-```dax
-F1_BERT =
+-- Evolução temporal (gráfico de linhas)
+Alertas_Diarios =
 CALCULATE(
-    AVERAGE(metricas_modelos[F1_Score]),
-    metricas_modelos[Modelo] = "BERT (BERTimbau)"
+    [Total_Alertas],
+    USERELATIONSHIP(vw_ameacas_completo[data_classificacao],
+                    dim_tempo[data])
 )
-```
-
-### Taxa de Falsos Positivos
-```dax
-Taxa_Falsos_Positivos =
-DIVIDE(
-    CALCULATE(
-        COUNT(factos_ameacas[id_externo]),
-        factos_ameacas[alerta_emitido] = 1,
-        factos_ameacas[categoria] = "Normal"
-    ),
-    CALCULATE(
-        COUNT(factos_ameacas[id_externo]),
-        factos_ameacas[alerta_emitido] = 1
-    ),
-    0
-)
-```
-
-### Redução de Custo Estimada (USD)
-```dax
-Reducao_Custo_USD =
-200000 - [Custo_Sistema_Anual]
--- Custo_Sistema_Anual é um parâmetro configurável (default: 146000)
-```
-
----
-
-## Configuração Power Automate (Alertas Automáticos)
-
-### Fluxo de Alerta:
-1. **Gatilho:** "Quando um alerta de dados é ativado no Power BI"
-2. **Condição:** confianca_bert >= 0.75 AND categoria <> "Normal"
-3. **Ação 1:** Enviar notificação push ao analista
-4. **Ação 2:** Criar item na lista SharePoint (log de auditoria)
-5. **Ação 3:** Enviar e-mail ao Gestor de Segurança (nível >= ALTO)
-
-### Payload do webhook (do Módulo 4):
-```json
-{
-  "timestamp": "2026-08-15T10:23:45Z",
-  "tipo_alerta": "AMEACA_DETETADA",
-  "nivel": "ALTO",
-  "categoria": "Mobilização Hostil",
-  "confianca": 0.89,
-  "plataforma": "facebook",
-  "provincia": "Luanda",
-  "texto_resumo": "[texto anonimizado — 150 chars]"
-}
 ```
