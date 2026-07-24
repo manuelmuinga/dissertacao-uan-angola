@@ -1,6 +1,6 @@
-Plataforma,Normal,Desinformacao,Discurso_Odio,Mobilizacao_Hostil,Total
-Facebook,25.558,4.449,3.516,2.363,35.876
-Twitter/X,16.384,3.659,2.416,1.459,23.918
-Telegram,8.980,2.876,1.937,1.583,15.376
-Web/Blogues,8.436,1.035,533,246,10.250
-TOTAL,59.358,12.019,8.402,5.641,85.420
+Plataforma,Ferramenta_OSINT,Normal,Desinformacao,Discurso_Odio,Mobilizacao_Hostil,Total,Pct_Corpus
+Facebook,Playwright + Chromium,25558,4449,3516,2363,35876,42.0
+Twitter/X,Playwright + Nitter,16384,3659,2416,1459,23918,28.0
+Telegram,t.me/s/ scraper,8980,2876,1937,1583,15376,18.0
+Web/Blogues,aiohttp + yt-dlp,8436,1035,533,246,10250,12.0
+TOTAL,,59358,12019,8402,5641,85420,100.0
