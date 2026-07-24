@@ -1,40 +1,38 @@
-# ============================================================
 # requirements_osint.txt — Stack OSINT completo
-# Sistema Operativo: Windows 11 (64-bit) | Google Colab Pro
-# Dissertação UAN — Manuel Muinga 2026
-# ============================================================
-# INSTALAÇÃO:
+# SO: Windows 11 (64-bit) | Google Colab Pro | Python 3.11
+# Dissertacao UAN — Manuel Muinga 2026
+#
+# INSTALACAO:
 #   pip install -r requirements_osint.txt
 #   playwright install chromium
 #   python -m spacy download pt_core_news_lg
-# ============================================================
 
 # === Scrapers OSINT (sem APIs pagas) ===
-aiohttp==3.9.1              # HTTP assíncrono (notícias + Telegram t.me/s/)
+aiohttp==3.9.1              # HTTP assincrono (Web + Telegram t.me/s/)
 beautifulsoup4==4.12.2      # Parsing HTML
-lxml==5.1.0                 # Parser rápido (t.me/s/ Telegram)
+lxml==5.1.0                 # Parser rapido
 playwright==1.40.0          # Browser headless (Facebook + Nitter)
-yt-dlp==2024.1.0            # YouTube + TikTok (sem API key)
-python-dotenv==1.0.0        # Variáveis de ambiente (.env)
-redis==5.0.1                # Fila de URLs e deduplicação (opcional)
+yt-dlp==2024.1.0            # YouTube + TikTok sem API
+python-dotenv==1.0.0        # Variaveis de ambiente
+redis==5.0.1                # Deduplicacao entre ciclos (opcional)
 
 # === PLN e IA ===
-spacy==3.6.1                # Lematização português
-transformers==4.35.2        # BERTimbau (HuggingFace)
-torch==2.1.0                # PyTorch (treino GPU)
+spacy==3.6.1
+transformers==4.35.2        # BERTimbau
+torch==2.1.0
 tensorflow==2.13.0          # Bi-LSTM
-scikit-learn==1.3.2         # SVM, Random Forest, métricas
+scikit-learn==1.3.2
 imbalanced-learn==0.11.0    # SMOTE
 
-# === Big Data ===
-pyspark==3.4.1              # Processamento distribuído (Google Colab)
+# === Big Data (Google Colab) ===
+pyspark==3.4.1
 
 # === Bases de dados ===
 pymongo[srv]==4.6.0         # MongoDB Atlas
-dnspython==2.4.2            # Resolução DNS SRV
+dnspython==2.4.2
 pyodbc==5.0.1               # SQL Server Express (Windows 11)
 
-# === Análise e visualização ===
+# === Analise ===
 pandas==2.1.3
 numpy==1.26.2
 matplotlib==3.8.2
