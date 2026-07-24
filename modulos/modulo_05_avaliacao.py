@@ -1,165 +1,83 @@
 """
-=============================================================================
-MÓDULO 5 — Avaliação de Modelos e Visualização de Resultados
-=============================================================================
-Dissertação: Monitoramento Inteligente de Ameaças em Redes Sociais em Angola
-Autor: Manuel Muinga | UAN — Faculdade de Engenharia | 2026
-=============================================================================
-Descrição:
-    Módulo de avaliação comparativa dos quatro modelos (SVM, Random Forest,
-    Bi-LSTM, BERT), gerando:
-    - Matrizes de confusão (4×4)
-    - Curvas ROC comparativas
-    - Relatório de métricas (F1, AUC-ROC, Kappa de Cohen)
-    - Exportação para Power BI (CSV)
-=============================================================================
+Módulo 5 — Avaliação de Modelos (F1, Kappa, AUC-ROC, Matrizes de Confusão)
+Dissertação UAN — Manuel Muinga 2026
+Gera Figuras 4.1 e 4.2 da dissertação
 """
-
-import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import (
-    classification_report, confusion_matrix,
-    roc_auc_score, roc_curve, auc, cohen_kappa_score, f1_score
+    f1_score, cohen_kappa_score, roc_auc_score,
+    confusion_matrix, classification_report,
+    roc_curve, auc,
 )
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import Pipeline
-from loguru import logger
 
-CATEGORIAS = ["Normal", "Desinformação", "Discurso de Ódio", "Mobilização Hostil"]
-CORES_MODELOS = {
-    "SVM":            "#E74C3C",
-    "Random Forest":  "#F39C12",
-    "Bi-LSTM":        "#2ECC71",
-    "BERT (BERTimbau)": "#3498DB",
-}
+CATEGORIAS  = ["Normal","Desinformação","Discurso de Ódio","Mobilização Hostil"]
+CATS_CURTAS = ["Normal","Desinform.","Ódio","Mobilização"]
 
 
-def treinar_baseline(X_train: list, y_train: list) -> dict:
-    """Treina os modelos baseline (SVM e Random Forest) com TF-IDF."""
-    modelos = {
-        "SVM": Pipeline([
-            ("tfidf", TfidfVectorizer(max_features=20000, ngram_range=(1,2))),
-            ("clf",   SVC(kernel="rbf", C=10, probability=True, random_state=42)),
-        ]),
-        "Random Forest": Pipeline([
-            ("tfidf", TfidfVectorizer(max_features=20000, ngram_range=(1,2))),
-            ("clf",   RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)),
-        ]),
-    }
-    for nome, modelo in modelos.items():
-        modelo.fit(X_train, y_train)
-        logger.info(f"{nome} treinado.")
-    return modelos
+def avaliar_modelo(y_real, y_pred, y_proba=None, nome="Modelo"):
+    """Calcula todas as métricas da Tabela 4.1 da dissertação."""
+    f1    = f1_score(y_real, y_pred, average="weighted", zero_division=0)
+    kappa = cohen_kappa_score(y_real, y_pred)
+    auc_v = roc_auc_score(y_real, y_proba, multi_class="ovr",
+                           average="weighted") if y_proba is not None else None
+    prec  = __import__("sklearn.metrics", fromlist=["precision_score"]).precision_score(
+        y_real, y_pred, average="weighted", zero_division=0)
+    rec   = __import__("sklearn.metrics", fromlist=["recall_score"]).recall_score(
+        y_real, y_pred, average="weighted", zero_division=0)
+    print(f"
+=== {nome} ===")
+    print(f"  F1-Score   : {f1:.3f}")
+    print(f"  Precisão   : {prec:.3f}")
+    print(f"  Recall     : {rec:.3f}")
+    print(f"  Kappa (κ)  : {kappa:.3f}")
+    if auc_v: print(f"  AUC-ROC    : {auc_v:.3f}")
+    return {"nome":nome,"f1":f1,"precisao":prec,"recall":rec,"kappa":kappa,"auc_roc":auc_v}
 
 
-def plotar_matrizes_confusao(resultados: dict, caminho: str = "graficos/") -> None:
-    """
-    Gera matrizes de confusão (4×4) para cada modelo — Figura 4.2 da dissertação.
-    """
-    os.makedirs(caminho, exist_ok=True)
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    axes = axes.flatten()
-    
-    for i, (nome, dados) in enumerate(resultados.items()):
-        cm = confusion_matrix(dados["y_true"], dados["y_pred"])
-        cm_norm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
-        
-        sns.heatmap(
-            cm_norm, annot=True, fmt=".2f", cmap="Blues",
-            xticklabels=CATEGORIAS, yticklabels=CATEGORIAS,
-            ax=axes[i], linewidths=0.5, cbar_kws={"shrink": 0.8}
-        )
-        axes[i].set_title(f"{nome}\nF1={dados['f1']:.2f} | AUC={dados.get('auc',0):.2f}",
-                          fontsize=12, fontweight="bold")
-        axes[i].set_ylabel("Real", fontsize=10)
-        axes[i].set_xlabel("Previsto", fontsize=10)
-        axes[i].tick_params(axis="x", rotation=30)
-    
-    plt.suptitle("Figura 4.2 — Matrizes de Confusão (4×4)\nCorpus Angola — Jan 2024 a Ago 2025",
-                 fontsize=14, fontweight="bold", y=1.02)
+def plotar_matrizes_confusao(modelos_preds, y_real, caminho="/content/graficos/figura_4_2.png"):
+    """Gera Figura 4.2 — Matrizes de Confusão (4×4) de múltiplos modelos."""
+    n    = len(modelos_preds)
+    fig, axes = plt.subplots(1, n, figsize=(6*n, 5))
+    if n == 1: axes = [axes]
+    fig.suptitle("Figura 4.2 — Matrizes de Confusão
+Corpus Angola OSINT 2024–2025",
+                 fontsize=13, fontweight="bold")
+    for ax, (nome, preds) in zip(axes, modelos_preds):
+        cm = confusion_matrix(y_real, preds, labels=[0,1,2,3]).astype(float)
+        for i in range(len(cm)):
+            if cm[i].sum() > 0: cm[i] /= cm[i].sum()
+        f1 = f1_score(y_real, preds, average="weighted", zero_division=0)
+        sns.heatmap(cm, annot=True, fmt=".2f", cmap="Blues", ax=ax,
+                    xticklabels=CATS_CURTAS, yticklabels=CATS_CURTAS, linewidths=0.5)
+        ax.set_title(f"{nome}\nF1={f1:.2f}", fontsize=11, fontweight="bold")
+        ax.set_ylabel("Real"); ax.set_xlabel("Previsto")
+        ax.tick_params(axis="x", rotation=30)
     plt.tight_layout()
-    plt.savefig(f"{caminho}figura_4_2_matrizes_confusao.png", dpi=150, bbox_inches="tight")
-    logger.info(f"Matrizes de confusão guardadas: {caminho}figura_4_2_matrizes_confusao.png")
-    plt.close()
+    plt.savefig(caminho, dpi=150, bbox_inches="tight")
+    plt.show()
+    print(f"Figura 4.2 guardada: {caminho}")
 
 
-def plotar_curvas_roc(resultados: dict, caminho: str = "graficos/") -> None:
-    """
-    Gera curvas ROC comparativas dos quatro modelos — Figura 4.1 da dissertação.
-    """
-    os.makedirs(caminho, exist_ok=True)
-    plt.figure(figsize=(10, 8))
-    
-    for nome, dados in resultados.items():
-        if "y_prob" in dados and dados["y_prob"] is not None:
-            # Curva ROC macro-average
-            fpr_list, tpr_list = [], []
-            for classe in range(4):
-                y_bin = (np.array(dados["y_true"]) == classe).astype(int)
-                fpr, tpr, _ = roc_curve(y_bin, np.array(dados["y_prob"])[:, classe])
-                fpr_list.append(fpr)
-                tpr_list.append(tpr)
-            
-            # Interpolação macro
-            all_fpr = np.unique(np.concatenate(fpr_list))
-            mean_tpr = np.zeros_like(all_fpr)
-            for j in range(4):
-                mean_tpr += np.interp(all_fpr, fpr_list[j], tpr_list[j])
-            mean_tpr /= 4
-            auc_score = auc(all_fpr, mean_tpr)
-            
-            plt.plot(all_fpr, mean_tpr,
-                     color=CORES_MODELOS.get(nome, "gray"),
-                     lw=2.5,
-                     label=f"{nome} (AUC = {auc_score:.2f})")
-    
-    plt.plot([0, 1], [0, 1], "k--", lw=1.5, label="Classificador Aleatório (AUC = 0,50)")
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("Taxa de Falsos Positivos (FPR)", fontsize=12)
-    plt.ylabel("Taxa de Verdadeiros Positivos (TPR)", fontsize=12)
-    plt.title("Figura 4.1 — Curvas ROC Comparativas dos Quatro Modelos\n"
-              "Corpus Angola — Jan 2024 a Ago 2025", fontsize=13, fontweight="bold")
-    plt.legend(loc="lower right", fontsize=11)
-    plt.grid(alpha=0.3)
+def plotar_curvas_roc(modelos_proba, y_real, caminho="/content/graficos/figura_4_1.png"):
+    """Gera Figura 4.1 — Curvas ROC comparativas dos 4 modelos."""
+    from sklearn.preprocessing import label_binarize
+    y_bin = label_binarize(y_real, classes=[0,1,2,3])
+    plt.figure(figsize=(8, 6))
+    cores = ["#E74C3C","#F39C12","#3498DB","#2ECC71"]
+    for (nome, proba), cor in zip(modelos_proba, cores):
+        fpr, tpr, _ = roc_curve(y_bin.ravel(),
+                                  np.array(proba).ravel() if proba is not None
+                                  else np.zeros_like(y_bin).ravel())
+        auc_v = auc(fpr, tpr)
+        plt.plot(fpr, tpr, color=cor, lw=2, label=f"{nome} (AUC={auc_v:.2f})")
+    plt.plot([0,1],[0,1],"k--", lw=1)
+    plt.xlabel("Taxa de Falsos Positivos"); plt.ylabel("Taxa de Verdadeiros Positivos")
+    plt.title("Figura 4.1 — Curvas ROC Comparativas
+Corpus Angola OSINT 2024–2025")
+    plt.legend(loc="lower right"); plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"{caminho}figura_4_1_curvas_roc.png", dpi=150, bbox_inches="tight")
-    logger.info(f"Curvas ROC guardadas: {caminho}figura_4_1_curvas_roc.png")
-    plt.close()
-
-
-def exportar_powerbi(resultados: dict, caminho: str = "powerbi/dados/") -> None:
-    """
-    Exporta métricas dos modelos para CSV — importação no Power BI Desktop.
-    """
-    os.makedirs(caminho, exist_ok=True)
-    
-    # Tabela de métricas por modelo
-    metricas = []
-    for nome, dados in resultados.items():
-        metricas.append({
-            "Modelo":     nome,
-            "F1_Score":   dados.get("f1", 0),
-            "AUC_ROC":    dados.get("auc", 0),
-            "Kappa":      dados.get("kappa", 0),
-            "Precisao":   dados.get("precisao", 0),
-            "Recall":     dados.get("recall", 0),
-        })
-    
-    df_metricas = pd.DataFrame(metricas)
-    df_metricas.to_csv(f"{caminho}metricas_modelos.csv", index=False, encoding="utf-8-sig")
-    logger.info(f"Métricas exportadas para Power BI: {caminho}metricas_modelos.csv")
-    print("\n=== Tabela 4.1 — Resultados dos Modelos ===")
-    print(df_metricas.to_string(index=False))
-
-
-if __name__ == "__main__":
-    logger.info("Módulo de avaliação pronto. Execute após treino dos modelos.")
-    logger.info("Saída: graficos/figura_4_1_curvas_roc.png")
-    logger.info("Saída: graficos/figura_4_2_matrizes_confusao.png")
-    logger.info("Saída: powerbi/dados/metricas_modelos.csv")
+    plt.savefig(caminho, dpi=150, bbox_inches="tight")
+    plt.show()
+    print(f"Figura 4.1 guardada: {caminho}")
