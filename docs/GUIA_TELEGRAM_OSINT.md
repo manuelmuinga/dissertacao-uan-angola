@@ -1,91 +1,42 @@
-# Scraper Telegram OSINT — t.me/s/ (Sem API, Sem Subscrição)
+# Scraper Telegram via t.me/s/ — Sem API, Sem Subscrição
 
-## O que mudou
+## Contexto
+O Telethon MTProto passou a ser **pago** em 2025.
+Esta solução usa `https://t.me/s/{canal}` — HTML público do Telegram.
 
-O Telethon MTProto passou a exigir subscrição paga em 2025.
-Esta solução usa o endpoint público `t.me/s/` do Telegram — **100% gratuita**.
-
-## Comparação das abordagens
-
-| Característica | Telethon MTProto (anterior) | t.me/s/ OSINT (actual) |
+| | Telethon (anterior) | t.me/s/ (actual) |
 |---|---|---|
-| Custo | ❌ Subscrição paga (2025) | ✅ Gratuito |
-| Conta Telegram | ❌ Necessária | ✅ Não necessária |
-| API ID / Hash | ❌ Necessários | ✅ Não necessários |
-| Número de telefone | ❌ Necessário | ✅ Não necessário |
-| Canais públicos | ✅ Sim | ✅ Sim |
-| Canais privados | ✅ Sim (com conta) | ❌ Não |
-| Histórico completo | ✅ Sim | ⚠️ ~100 msgs/página (paginado) |
-| Instalação | `pip install telethon` | `pip install aiohttp beautifulsoup4 lxml` |
+| Custo | ❌ Pago 2025 | ✅ Gratuito |
+| Conta Telegram | ❌ Obrigatória | ✅ Não necessária |
+| Canais públicos | ✅ | ✅ |
+| Histórico | ✅ Completo | ⚠️ Paginado |
 
 ## Como funciona
+```python
+import aiohttp
+from bs4 import BeautifulSoup
 
-O Telegram expõe todos os canais públicos numa página HTML pública:
+async def raspar_canal(canal):
+    url = f"https://t.me/s/{canal}"
+    async with aiohttp.ClientSession() as s:
+        async with s.get(url) as r:
+            html = await r.text()
+    soup = BeautifulSoup(html, "lxml")
+    msgs = soup.select(".tgme_widget_message_text")
+    return [m.get_text() for m in msgs]
 
-```
-https://t.me/s/{username_do_canal}
+# Paginação: ?before={id_mais_antigo}
 ```
 
-Esta página é renderizada pelo servidor do Telegram (sem JavaScript),
-tornando-a trivial de raspar com `aiohttp` + `BeautifulSoup`.
-
-Exemplo:
-```
-https://t.me/s/angola_noticias
-https://t.me/s/verangola
-```
+## Canais angolanos do corpus (18)
+angola24horas, angolaclareza, angolainformacao, verangola, rnaangola,
+jornaldeangola, expansaoangola, novojornal_ao, angola_politica,
+angola_seguranca, angola_actualidade, luanda_hoje, angola_noticias,
+angola_livre, benguela_noticias, cabinda_actualidade, huambo_info, angola_diaspora
 
 ## Instalação
-
 ```bash
-pip install aiohttp beautifulsoup4 lxml pymongo python-dotenv
+pip install aiohttp beautifulsoup4 lxml
 ```
 
-## Execução
-
-```bash
-# Testar canais e recolher mensagens
-python modulos/modulo_telegram_osint.py
-
-# Em Google Colab:
-import asyncio
-from modulo_telegram_osint import TelegramScraperOSINT, guardar_mongodb
-
-scraper = TelegramScraperOSINT()
-# Testar um canal
-resultado = await scraper.testar_canal('angola_noticias')
-print(resultado)
-
-# Recolher mensagens
-publicacoes = await scraper.raspar_todos_canais()
-print(f'{len(publicacoes)} mensagens recolhidas')
-```
-
-## Navegação paginada
-
-Para obter mais de 20 mensagens por canal, o scraper navega
-automaticamente para páginas anteriores usando o parâmetro `?before={id}`:
-
-```
-Página 1: https://t.me/s/angola_noticias
-Página 2: https://t.me/s/angola_noticias?before=450
-Página 3: https://t.me/s/angola_noticias?before=430
-...
-```
-
-## Limitações
-
-- Apenas canais **públicos** com preview web activada
-- Sem acesso a reacções (renderizadas client-side)
-- Alguns canais podem ter o preview desactivado pelo administrador
-- Imagens/vídeos disponíveis como URLs CDN (expiram ao fim de algum tempo)
-
-## Conformidade ética e legal
-
-- Recolha exclusiva de conteúdo **publicamente acessível** (Lei n.º 22/11 Angola)
-- Anonimização de identificadores por **SHA-256**
-- Delay mínimo de **2,5 segundos** entre pedidos
-- Sem acesso a mensagens privadas ou dados de utilizadores
-
----
-*Dissertação UAN — Manuel Muinga 2026 | github.com/manuelmuinga/dissertacao-uan-angola*
+*Dissertação UAN — Manuel Muinga 2026*
