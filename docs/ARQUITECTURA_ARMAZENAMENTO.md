@@ -1,22 +1,17 @@
-# Arquitectura de Armazenamento — Dissertação UAN 2026
+# Arquitectura de Armazenamento
 
-## Duas bases de dados (conforme diagrama)
+## MongoDB Atlas + SQL Server Express (Windows 11)
 
-### MongoDB Atlas — dados brutos e classificados
-- URI: `mongodb+srv://...` (Colab Secrets / .env)
-- Colecções: `publicacoes_brutas`, `publicacoes_classificadas`, `logs_scrapers`
-- Acesso Python: `pymongo`
+### MongoDB Atlas
+- URI: `mongodb+srv://...` (.env)
+- 3 colecções: brutas, classificadas, logs
 
-### SQL Server Express — Data Warehouse (Windows 11 local)
-- Instalação: https://www.microsoft.com/pt-pt/sql-server/sql-server-downloads → Express
+### SQL Server Express (Windows 11 local)
+- Instalação: Express (gratuito, até 10 GB)
 - Script: `dados/criar_data_warehouse.sql`
-- String de ligação:
-  ```
-  SERVER=localhost\SQLEXPRESS;DATABASE=AmeacasAngola_DW;Trusted_Connection=yes
-  ```
-- Vista Power BI: `vw_ameacas_completo`
+- Ligação Power BI: `localhost\SQLEXPRESS` → `AmeacasAngola_DW` → `vw_ameacas_completo`
 
-## Módulo de escrita dual
-`modulos/modulo_armazenamento_dual.py` escreve em ambas automaticamente.
+### Módulo Python
+`modulos/modulo_armazenamento_dual.py`
 
 *Dissertação UAN — Manuel Muinga 2026*
