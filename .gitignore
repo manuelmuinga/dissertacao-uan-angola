@@ -9,6 +9,3 @@ modelos/bilstm/
 graficos/
 .scrapy/
 node_modules/
-*.egg-info/
-dist/
-build/
