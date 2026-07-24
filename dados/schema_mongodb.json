@@ -1,77 +1,72 @@
 {
   "base_de_dados": "dissertacao_angola",
-  "so": "Windows 11 (64-bit)",
-  "versao": "MongoDB Community Server 7.0",
-  "colecoes": {
-    "publicacoes_brutas": {
-      "descricao": "Publicacoes recolhidas pelos scrapers OSINT (brutas)",
+  "sistema_operativo": "Windows 11 (64 bits)",
+  "versao_mongodb": "MongoDB Community Server 7.0",
+  "descricao": "Base de dados NoSQL para dados brutos e classificados do sistema OSINT",
+  "colecoes": [
+    {
+      "nome": "publicacoes_brutas",
+      "descricao": "Publicacoes recolhidas pelos scrapers OSINT antes do processamento",
       "indices": [
-        "id_externo (unique)",
-        "plataforma",
-        "recolhido_em",
-        "preprocessado"
+        {"campo": "id_externo", "unico": true},
+        {"campo": "plataforma"},
+        {"campo": "recolhido_em"},
+        {"campo": "preprocessado"}
       ],
       "campos": {
-        "id_externo": "string SHA-256 (Lei 22/11 Angola)",
-        "texto": "string max 3000 chars",
-        "plataforma": "string (facebook|twitter|telegram|web_*|youtube)",
-        "url_origem": "string",
-        "provincia": "string (18 provincias angolanas)",
-        "data": "string ISO 8601",
-        "recolhido_em": "string ISO 8601",
-        "metodo": "OSINT_scraper",
-        "classificado": "boolean",
-        "preprocessado": "boolean"
+        "id_externo":    "string (SHA-256 do ID original — Lei 22/11 Angola)",
+        "texto":         "string (max 3000 chars)",
+        "plataforma":    "string (facebook|twitter|telegram|youtube|web_*)",
+        "url_origem":    "string",
+        "provincia":     "string (18 provincias angolanas)",
+        "data":          "string ISO 8601",
+        "recolhido_em":  "string ISO 8601",
+        "metodo":        "string (OSINT_scraper)",
+        "classificado":  "boolean",
+        "preprocessado": "boolean",
+        "vistas":        "integer (opcional)"
       }
     },
-    "publicacoes_classificadas": {
-      "descricao": "Publicacoes apos classificacao BERT",
+    {
+      "nome": "publicacoes_classificadas",
+      "descricao": "Publicacoes apos classificacao pelo modelo BERT",
       "indices": [
-        "id_externo (unique)",
-        "[categoria,confianca_bert]",
-        "alerta_emitido",
-        "provincia",
-        "classificado_em"
+        {"campo": "id_externo", "unico": true},
+        {"campos": ["categoria", "confianca_bert"], "ordem": [1, -1]},
+        {"campo": "alerta_emitido"},
+        {"campo": "provincia"},
+        {"campo": "classificado_em"}
       ],
       "campos": {
-        "id_externo": "string SHA-256",
-        "id_anonimizado": "string SHA-256 16 chars",
-        "texto_processado": "string pos PLN",
-        "categoria": "Normal|Desinformacao|Discurso de Odio|Mobilizacao Hostil",
-        "confianca_bert": "float 0.0-1.0",
-        "alerta_emitido": "boolean",
-        "plataforma": "string",
-        "provincia": "string",
-        "data": "string ISO 8601",
+        "id_externo":      "string (SHA-256)",
+        "id_anonimizado":  "string (SHA-256 16 chars)",
+        "texto_processado":"string (apos PLN)",
+        "categoria":       "string (Normal|Desinformacao|Discurso de Odio|Mobilizacao Hostil)",
+        "confianca_bert":  "float (0.0-1.0)",
+        "alerta_emitido":  "boolean",
+        "plataforma":      "string",
+        "provincia":       "string",
+        "data":            "string ISO 8601",
         "classificado_em": "string ISO 8601",
-        "modelo_ia": "BERT-BERTimbau",
-        "segundos_detecao": "integer"
+        "modelo_ia":       "string (BERT-BERTimbau)",
+        "segundos_detecao":"integer"
       }
     },
-    "logs_scrapers": {
-      "descricao": "Logs de cada ciclo de recolha OSINT",
+    {
+      "nome": "logs_scrapers",
+      "descricao": "Registo de cada ciclo de recolha OSINT",
       "indices": [
-        "timestamp"
+        {"campo": "timestamp"},
+        {"campo": "plataforma"}
       ],
       "campos": {
-        "timestamp": "string ISO 8601",
-        "plataforma": "string",
-        "total_recolhido": "integer",
-        "inseridos": "integer",
-        "duracao_seg": "float",
-        "erro": "string|null"
+        "timestamp":      "string ISO 8601",
+        "plataforma":     "string",
+        "total_recolhido":"integer",
+        "inseridos":      "integer",
+        "duracao_seg":    "float",
+        "erro":           "string (null se sem erro)"
       }
     }
-  },
-  "corpus_dissertacao": {
-    "total": 85420,
-    "periodo": "Janeiro 2024 - Agosto 2025",
-    "ciclo_recolha": "15 minutos",
-    "distribuicao": {
-      "facebook": 35876,
-      "twitter": 23918,
-      "telegram": 15376,
-      "web_blogues": 10250
-    }
-  }
+  ]
 }
