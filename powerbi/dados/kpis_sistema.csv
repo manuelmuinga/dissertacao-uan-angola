@@ -1,16 +1,37 @@
-Metrica,Valor,Unidade,Descricao,Hipotese
-Total_Publicacoes,85420,publicacoes,Corpus total recolhido Jan2024-Ago2025,
-Total_Ameacas,26062,publicacoes,Publicacoes classificadas como ameaca,
-Taxa_Ameacas,30.5,%,Percentagem com ameaca,
-F1_Score_BERT,91,%,F1-Score BERTimbau corpus Angola,H1
-AUC_ROC_BERT,0.95,valor,AUC-ROC BERTimbau,H1
-Kappa_Cohen_Corpus,0.78,valor,Acordo entre anotadores,
-Tempo_Medio_Detecao,47,segundos,Tempo publicacao ate alerta Power BI,H2
-Antecedencia_Media,76,horas,Antecedencia media dos alertas preventivos,H3
-Taxa_Antecedencia_48h,100,%,Alertas com mais de 48h antecedencia,H3
-Taxa_Falsos_Positivos,8.3,%,Taxa falsos positivos BERT,
-Taxa_Falsos_Negativos,6.1,%,Taxa falsos negativos BERT,
-Reducao_Tempo_Resposta,99.9,%,Reducao vs monitoramento manual 24h,H2
-Capacidade_Hora,1000000,publicacoes/hora,Capacidade pipeline PySpark,
-Total_Alertas_PowerBI,17423,alertas,Total alertas enviados via Power Automate,
-Custo_APIs,0,USD/mes,Arquitectura OSINT sem APIs pagas,
+Metrica,Valor,Unidade,Categoria,Hipotese,Descricao
+Total_Publicacoes_Corpus,85420,publicacoes,Corpus,,"Corpus total acumulado Jan2024-Ago2025 (20 meses)"
+Total_Fontes_OSINT,53,fontes,OSINT,,"12 FB + 15 Twitter + 18 Telegram + 8 Web"
+Ciclos_Recolha,57600,ciclos,OSINT,,"96 ciclos/dia x 600 dias"
+Periodo_Recolha_Meses,20,meses,OSINT,,"Janeiro 2024 - Agosto 2025"
+Custo_APIs_USD,0,USD/mes,OSINT,,"Arquitectura 100% OSINT sem APIs pagas"
+Total_Ameacas,26078,publicacoes,Classificacao,,"Total classificado como ameaca (≠ Normal)"
+Taxa_Ameacas,30.5,%,Classificacao,,"Percentagem publicacoes com ameaca"
+F1_Score_BERT,91,%,Modelo,H1,"BERTimbau fine-tuned corpus Angola"
+F1_Score_BiLSTM,87,%,Modelo,H1,"Bi-LSTM com embeddings portugueses"
+F1_Score_RF,80,%,Modelo,H1,"Random Forest baseline"
+F1_Score_SVM,78,%,Modelo,H1,"SVM baseline"
+AUC_ROC_BERT,0.95,valor,Modelo,H1,"Area Under ROC Curve - BERT"
+AUC_ROC_BiLSTM,0.91,valor,Modelo,H1,"Area Under ROC Curve - Bi-LSTM"
+Kappa_Cohen_BERT,0.88,valor,Modelo,H1,"Concordancia inter-anotadores corpus"
+Kappa_Cohen_Corpus,0.78,valor,Corpus,,"Acordo entre 3 anotadores independentes"
+Delta_F1_BERT_vs_SVM,13,pp,Modelo,H1,"Diferenca F1 BERT vs SVM (estatisticamente significativa p<0.01)"
+Tempo_Medio_Detecao_Seg,47,segundos,Performance,H2,"T1(8s)+T2(5s)+T3(6s)+T4(22s)+T5(6s)"
+Tempo_Manual_Horas,24,horas,Performance,H2,"Tempo medio monitorizacao manual"
+Reducao_Tempo_Pct,99.9,%,Performance,H2,"Reducao vs monitorizacao manual"
+Antecedencia_Media_Horas,76,horas,Performance,H3,"Media de antecedencia dos alertas preventivos"
+Taxa_Alertas_48h,100,%,Performance,H3,"Percentagem alertas com >= 48h antecedencia"
+Threshold_H3_Horas,48,horas,Performance,H3,"Limiar minimo da Hipotese H3"
+Total_Alertas_Power_BI,17423,alertas,Dashboard,,"Total alertas enviados via Power Automate"
+Taxa_Falsos_Positivos,8.3,%,Qualidade,,"False Positive Rate modelo BERT"
+Taxa_Falsos_Negativos,6.1,%,Qualidade,,"False Negative Rate modelo BERT"
+Confianca_Media_BERT,0.84,valor,Qualidade,,"Confianca media nas classificacoes de ameaca"
+Capacidade_PySpark_Hora,1000000,pub/hora,Infraestrutura,,"Capacidade pipeline PySpark Structured Streaming"
+Smote_Corpus_Treino,Sim,,Metodologia,,"SMOTE aplicado apenas ao conjunto de treino (70%)"
+Divisao_Corpus_Treino,70,%,Metodologia,,"70% treino / 15% validacao / 15% teste"
+Num_Anotadores,3,anotadores,Metodologia,,"Tres anotadores independentes"
+Num_Epocas_BERT,3,epocas,Modelo,,"Fine-tuning BERTimbau: 3 epocas lr=2e-5 batch=16"
+Max_Len_BERT,128,tokens,Modelo,,"Comprimento maximo de tokens BERT"
+GPU_Treino,NVIDIA T4 16GB,,Infraestrutura,,"Google Colab Pro - GPU T4"
+SO_Windows,Windows 11 64-bit,,Infraestrutura,,"Sistema operativo producao"
+MongoDB_Colecoes,3,colecoes,BD,,"publicacoes_brutas + classificadas + logs_scrapers"
+SQL_Server_Versao,Express 2022,,BD,,"SQL Server Express local Windows 11 (gratuito)"
