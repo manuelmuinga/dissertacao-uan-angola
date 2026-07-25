@@ -1,18 +1,51 @@
-Data,Hora,Plataforma,Categoria,Confianca,Provincia,Alerta,Horas_Antecedencia,Segundos_Detecao
-2025-08-01,08:23,facebook,Mobilizacao Hostil,0.89,Luanda,1,96,42
-2025-08-01,09:11,telegram,Desinformacao,0.94,Luanda,1,94,38
-2025-08-01,11:45,twitter,Normal,0.82,Luanda,0,0,51
-2025-08-02,07:33,facebook,Discurso de Odio,0.71,Benguela,0,0,45
-2025-08-02,10:22,telegram,Desinformacao,0.91,Luanda,1,88,39
-2025-08-03,06:15,facebook,Mobilizacao Hostil,0.88,Luanda,1,84,47
-2025-08-04,08:44,twitter,Desinformacao,0.79,Cabinda,1,80,52
-2025-08-05,07:12,telegram,Mobilizacao Hostil,0.93,Luanda,1,76,41
-2025-08-06,09:33,facebook,Discurso de Odio,0.85,Luanda,1,72,44
-2025-08-07,06:55,web_angop,Desinformacao,0.87,Malanje,1,68,49
-2025-08-08,10:11,telegram,Mobilizacao Hostil,0.91,Luanda,1,64,43
-2025-08-09,08:22,facebook,Normal,0.76,Huambo,0,0,38
-2025-08-10,07:44,twitter,Mobilizacao Hostil,0.86,Luanda,1,60,46
-2025-08-11,09:05,telegram,Desinformacao,0.92,Luanda,1,56,40
-2025-08-12,08:33,facebook,Discurso de Odio,0.78,Benguela,1,52,55
-2025-08-13,07:21,web_verangola,Mobilizacao Hostil,0.89,Luanda,1,48,47
-2025-08-14,09:44,telegram,Desinformacao,0.95,Luanda,1,44,36
+Data,Ano,Mes,Semana,Hora,Plataforma,Categoria,Confianca_BERT,Nivel_Risco,Provincia,Alerta_Emitido,Horas_Antecedencia,Segundos_Detecao,Verificado_Real
+2024-01-15,2024,1,3,09,facebook,Desinformacao,0.87,ALTO,Luanda,1,112,42,1
+2024-01-22,2024,1,4,14,telegram,Mobilizacao Hostil,0.91,ALTO,Luanda,1,98,38,1
+2024-02-08,2024,2,6,08,twitter,Desinformacao,0.83,ALTO,Benguela,1,88,51,1
+2024-02-19,2024,2,8,11,facebook,Discurso Odio,0.79,ALTO,Luanda,1,76,45,0
+2024-03-05,2024,3,10,07,telegram,Mobilizacao Hostil,0.93,ALTO,Luanda,1,120,39,1
+2024-03-18,2024,3,12,16,web_angop,Desinformacao,0.76,MEDIO,Malanje,1,64,49,0
+2024-04-02,2024,4,14,10,facebook,Mobilizacao Hostil,0.88,ALTO,Luanda,1,96,43,1
+2024-04-14,2024,4,16,13,twitter,Discurso Odio,0.82,ALTO,Cabinda,1,84,47,1
+2024-05-07,2024,5,19,08,telegram,Desinformacao,0.94,ALTO,Luanda,1,108,37,1
+2024-05-21,2024,5,21,15,facebook,Mobilizacao Hostil,0.86,ALTO,Huambo,1,72,44,1
+2024-06-03,2024,6,23,09,web_verangola,Desinformacao,0.79,ALTO,Luanda,1,60,52,0
+2024-06-17,2024,6,25,11,telegram,Mobilizacao Hostil,0.92,ALTO,Luanda,1,84,40,1
+2024-07-08,2024,7,28,07,facebook,Discurso Odio,0.85,ALTO,Benguela,1,96,46,1
+2024-07-22,2024,7,30,14,twitter,Desinformacao,0.88,ALTO,Luanda,1,72,41,0
+2024-08-05,2024,8,32,08,telegram,Mobilizacao Hostil,0.95,ALTO,Luanda,1,120,36,1
+2024-08-19,2024,8,34,10,facebook,Desinformacao,0.83,ALTO,Zaire,1,88,48,1
+2024-09-03,2024,9,36,09,web_rna,Mobilizacao Hostil,0.87,ALTO,Luanda,1,76,43,1
+2024-09-16,2024,9,38,13,telegram,Discurso Odio,0.81,ALTO,Kwanza Norte,1,64,50,0
+2024-10-07,2024,10,41,08,facebook,Desinformacao,0.90,ALTO,Luanda,1,96,38,1
+2024-10-21,2024,10,43,11,twitter,Mobilizacao Hostil,0.84,ALTO,Huila,1,80,45,1
+2024-11-04,2024,11,45,09,telegram,Desinformacao,0.92,ALTO,Luanda,1,104,39,1
+2024-11-18,2024,11,47,14,facebook,Discurso Odio,0.78,MEDIO,Uige,1,60,53,0
+2024-12-02,2024,12,49,08,web_expansao,Mobilizacao Hostil,0.89,ALTO,Luanda,1,88,42,1
+2024-12-16,2024,12,51,10,telegram,Desinformacao,0.93,ALTO,Benguela,1,76,37,1
+2025-01-13,2025,1,3,09,facebook,Mobilizacao Hostil,0.91,ALTO,Luanda,1,96,41,1
+2025-01-27,2025,1,5,13,twitter,Desinformacao,0.86,ALTO,Cabinda,1,84,46,1
+2025-02-10,2025,2,7,08,telegram,Mobilizacao Hostil,0.94,ALTO,Luanda,1,120,38,1
+2025-02-24,2025,2,9,11,facebook,Discurso Odio,0.80,ALTO,Malanje,1,72,49,0
+2025-03-10,2025,3,11,09,web_novojornal,Desinformacao,0.88,ALTO,Luanda,1,96,43,1
+2025-03-24,2025,3,13,14,telegram,Mobilizacao Hostil,0.92,ALTO,Luanda,1,108,39,1
+2025-04-07,2025,4,15,08,facebook,Desinformacao,0.85,ALTO,Huambo,1,84,45,1
+2025-04-21,2025,4,17,11,twitter,Discurso Odio,0.83,ALTO,Luanda,1,76,47,1
+2025-05-05,2025,5,19,09,telegram,Mobilizacao Hostil,0.95,ALTO,Luanda,1,120,36,1
+2025-05-19,2025,5,21,13,facebook,Desinformacao,0.87,ALTO,Benguela,1,88,42,1
+2025-06-02,2025,6,23,08,web_angop,Mobilizacao Hostil,0.90,ALTO,Luanda,1,96,40,1
+2025-06-16,2025,6,25,11,telegram,Discurso Odio,0.82,ALTO,Lunda Norte,1,72,49,0
+2025-07-07,2025,7,28,09,facebook,Desinformacao,0.91,ALTO,Luanda,1,104,38,1
+2025-07-21,2025,7,30,14,twitter,Mobilizacao Hostil,0.89,ALTO,Cabinda,1,88,43,1
+2025-08-01,2025,8,31,08,facebook,Mobilizacao Hostil,0.92,ALTO,Luanda,1,96,42,1
+2025-08-04,2025,8,32,11,telegram,Desinformacao,0.95,ALTO,Luanda,1,104,38,1
+2025-08-05,2025,8,32,07,facebook,Mobilizacao Hostil,0.88,ALTO,Luanda,1,84,47,1
+2025-08-06,2025,8,32,10,twitter,Desinformacao,0.90,ALTO,Luanda,1,80,41,1
+2025-08-07,2025,8,32,08,telegram,Mobilizacao Hostil,0.94,ALTO,Luanda,1,76,39,1
+2025-08-08,2025,8,32,09,facebook,Discurso Odio,0.86,ALTO,Benguela,1,72,44,1
+2025-08-09,2025,8,33,07,web_verangola,Desinformacao,0.88,ALTO,Malanje,1,68,49,1
+2025-08-10,2025,8,33,10,telegram,Mobilizacao Hostil,0.93,ALTO,Luanda,1,64,40,1
+2025-08-11,2025,8,33,08,facebook,Mobilizacao Hostil,0.91,ALTO,Luanda,1,60,43,1
+2025-08-12,2025,8,33,11,twitter,Desinformacao,0.87,ALTO,Cabinda,1,56,46,1
+2025-08-13,2025,8,33,07,telegram,Mobilizacao Hostil,0.95,ALTO,Luanda,1,52,37,1
+2025-08-14,2025,8,33,09,facebook,Discurso Odio,0.84,ALTO,Benguela,1,48,45,1
