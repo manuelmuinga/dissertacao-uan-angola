@@ -1,6 +1,6 @@
-Plataforma,Ferramenta_OSINT,Normal,Desinformacao,Discurso_Odio,Mobilizacao_Hostil,Total,Pct_Corpus
-Facebook,Playwright + Chromium,25558,4449,3516,2363,35876,42.0
-Twitter/X,Playwright + Nitter,16384,3659,2416,1459,23918,28.0
-Telegram,t.me/s/ scraper,8980,2876,1937,1583,15376,18.0
-Web/Blogues,aiohttp + yt-dlp,8436,1035,533,246,10250,12.0
-TOTAL,,59358,12019,8402,5641,85420,100.0
+Plataforma,Ferramenta_OSINT,Total_Publicacoes,Pct_Corpus,Normal,Pct_Normal,Desinformacao,Pct_Desinfo,Discurso_Odio,Pct_Odio,Mobilizacao_Hostil,Pct_Mobilizacao,Custo_USD
+Facebook,Playwright + Chromium headless,35876,42.0,25543,71.2,4449,12.4,3516,9.8,2368,6.6,0
+Twitter/X,Playwright + Nitter (espelho),23918,28.0,16383,68.5,3659,15.3,2416,10.1,1460,6.1,0
+Telegram,t.me/s/ scraper (sem API),15376,18.0,8980,58.4,2876,18.7,1937,12.6,1583,10.3,0
+Web/Blogues,aiohttp + BeautifulSoup + yt-dlp,10250,12.0,8436,82.3,1035,10.1,533,5.2,246,2.4,0
+TOTAL,,85420,100.0,59342,69.5,12019,14.1,8402,9.8,5657,6.6,0
