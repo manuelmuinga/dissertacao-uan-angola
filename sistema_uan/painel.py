@@ -40,7 +40,7 @@ if clf.nome == "DEMONSTRACAO":
 st.sidebar.info(
     "As classificações servem para **ordenar a revisão**. Nenhuma acção sobre pessoas "
     "pode basear-se apenas no sistema. Convocatórias pacíficas são exercício de direitos "
-    "(arts. 47.º e 48.º da Constituição)."
+    "(arts. 40.º e 47.º da Constituição)."
 )
 
 aba_fila, aba_panorama, aba_metricas, aba_dados = st.tabs(["Fila de revisão", "Panorama", "Métricas", "Dados e lotes"])

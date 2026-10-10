@@ -94,7 +94,7 @@ Para medir a sensibilidade, é preciso rever também uma **amostra aleatória** 
 - **Conservação limitada.** `uan.py limpar` apaga as publicações não revistas mais antigas do que o prazo. As revistas ficam como base de re-treino.
 - **Auditoria.** Importações, classificações, revisões, exportações e limpezas ficam na tabela `auditoria`.
 - **Sem perfis de autores.** O painel mostra agregados por categoria, dia e plataforma. Não há vistas por autor.
-- **Revisão humana obrigatória.** Uma convocatória para manifestação pacífica é exercício de direitos (arts. 47.º e 48.º da Constituição). No teste, a precisão do modelo em `Mobilizacao` foi cerca de 0,51 e, em conteúdo angolano, o F1-macro foi cerca de 0,53.
+- **Revisão humana obrigatória.** Uma convocatória para manifestação pacífica é exercício de direitos (arts. 40.º e 47.º da Constituição). No teste, a precisão do modelo em `Mobilizacao` foi cerca de 0,51 e, em conteúdo angolano, o F1-macro foi cerca de 0,53.
 - **Vias de recolha.** Só conteúdo público, sem contornar protecções técnicas nem aceder a conteúdo atrás de login. Os termos de uso das plataformas devem ser declarados na metodologia e confirmados com o orientador.
 
 ## 7. Re-treino com as revisões
