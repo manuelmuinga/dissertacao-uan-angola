@@ -1,0 +1,1 @@
+{"modelo": "BERTimbau", "itens": 198, "repeticoes": 3, "segundos_total_mediana": 125.466, "ms_por_item_mediana": 633.67, "dispositivo": "cpu", "lote": "sistema_uan/dados/lote_latencia.csv (200 comentarios ate_v11, random_state=7)", "data": "2026-10-12"}
