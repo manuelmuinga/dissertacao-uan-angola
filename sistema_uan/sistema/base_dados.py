@@ -1,11 +1,16 @@
 """Armazenamento em SQLite (um único ficheiro, sem servidor).
 
 Tabelas:
-- lotes: proveniência de cada recolha (plataforma, via, data, volume) — exigido
+- lotes: proveniência de cada recolha (plataforma, via, data, volume), exigida
   pela metodologia para declarar as vias de recolha.
 - publicacoes: texto já anonimizado e metadados mínimos.
 - classificacoes: saída do modelo, com marcas de tempo para medir a latência (H2).
-- revisoes: decisão do analista; servem de novos rótulos para re-treino.
+- revisoes: decisão de cada analista sobre cada publicação (uma linha por par
+  publicação–analista, para permitir medir o acordo entre analistas).
+- amostra_controlo: itens classificados como Normal sorteados para estimar a
+  sensibilidade (o que a fila não mostra).
+- utilizadores e sessoes: acesso à aplicação web.
+- definicoes: opções do supervisor (por exemplo, revisão cega).
 - auditoria: registo de acções (quem fez o quê e quando).
 """
 
@@ -27,7 +32,8 @@ CREATE TABLE IF NOT EXISTS lotes (
     ficheiro       TEXT,
     importado_em   TEXT NOT NULL,
     n_recebidos    INTEGER NOT NULL DEFAULT 0,
-    n_novos        INTEGER NOT NULL DEFAULT 0
+    n_novos        INTEGER NOT NULL DEFAULT 0,
+    importado_por  TEXT
 );
 CREATE TABLE IF NOT EXISTS publicacoes (
     id_pub          TEXT PRIMARY KEY,
@@ -51,13 +57,45 @@ CREATE TABLE IF NOT EXISTS classificacoes (
     duracao_ms     REAL NOT NULL           -- tempo de inferência atribuído a este item
 );
 CREATE TABLE IF NOT EXISTS revisoes (
-    id_pub         TEXT PRIMARY KEY REFERENCES publicacoes(id_pub) ON DELETE CASCADE,
+    id_pub         TEXT NOT NULL REFERENCES publicacoes(id_pub) ON DELETE CASCADE,
     analista       TEXT NOT NULL,
     categoria      TEXT NOT NULL,
     concorda       INTEGER NOT NULL,       -- 1 se igual à categoria do modelo
-    posicao_fila   INTEGER,                -- posição na fila quando foi revista (para precisão@K)
+    posicao_fila   INTEGER,                -- posição na fila quando foi revista
     nota           TEXT,
-    revisto_em     TEXT NOT NULL
+    revisto_em     TEXT NOT NULL,
+    origem_fila    TEXT NOT NULL DEFAULT 'fila',   -- fila | amostra | api
+    cega           INTEGER NOT NULL DEFAULT 0,     -- 1 se a sugestão do modelo estava escondida
+    PRIMARY KEY (id_pub, analista)
+);
+CREATE TABLE IF NOT EXISTS amostra_controlo (
+    id_pub      TEXT PRIMARY KEY REFERENCES publicacoes(id_pub) ON DELETE CASCADE,
+    id_amostra  INTEGER NOT NULL,
+    ordem       INTEGER NOT NULL,
+    criada_em   TEXT NOT NULL,
+    criada_por  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS utilizadores (
+    utilizador     TEXT PRIMARY KEY,
+    nome           TEXT NOT NULL,
+    papel          TEXT NOT NULL,          -- analista | supervisor
+    hash_senha     TEXT NOT NULL,
+    activo         INTEGER NOT NULL DEFAULT 1,
+    criado_em      TEXT NOT NULL,
+    ultimo_acesso  TEXT,
+    falhas         INTEGER NOT NULL DEFAULT 0,
+    bloqueado_ate  TEXT
+);
+CREATE TABLE IF NOT EXISTS sessoes (
+    token_hash  TEXT PRIMARY KEY,
+    utilizador  TEXT NOT NULL REFERENCES utilizadores(utilizador) ON DELETE CASCADE,
+    csrf        TEXT NOT NULL,
+    criada_em   TEXT NOT NULL,
+    expira_em   TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS definicoes (
+    chave  TEXT PRIMARY KEY,
+    valor  TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS auditoria (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +105,9 @@ CREATE TABLE IF NOT EXISTS auditoria (
     detalhe    TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_class_prior ON classificacoes(prioridade DESC);
+CREATE INDEX IF NOT EXISTS ix_class_cat ON classificacoes(categoria);
 CREATE INDEX IF NOT EXISTS ix_pub_lote ON publicacoes(id_lote);
+CREATE INDEX IF NOT EXISTS ix_rev_analista ON revisoes(analista);
 """
 
 
@@ -75,11 +115,39 @@ def agora() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
+def _colunas(c: sqlite3.Connection, tabela: str) -> list[str]:
+    return [r[1] for r in c.execute(f"PRAGMA table_info({tabela})")]
+
+
+def _migrar(c: sqlite3.Connection) -> None:
+    """Actualiza bases de dados criadas pela versão 0.1 do protótipo."""
+    if "origem_fila" not in _colunas(c, "revisoes"):
+        # 0.1: uma revisão por publicação (id_pub PRIMARY KEY). Passa a uma por analista.
+        c.executescript("""
+            ALTER TABLE revisoes RENAME TO revisoes_v01;
+            CREATE TABLE revisoes (
+                id_pub TEXT NOT NULL REFERENCES publicacoes(id_pub) ON DELETE CASCADE,
+                analista TEXT NOT NULL, categoria TEXT NOT NULL, concorda INTEGER NOT NULL,
+                posicao_fila INTEGER, nota TEXT, revisto_em TEXT NOT NULL,
+                origem_fila TEXT NOT NULL DEFAULT 'fila', cega INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (id_pub, analista));
+            INSERT INTO revisoes(id_pub, analista, categoria, concorda, posicao_fila, nota, revisto_em)
+                SELECT id_pub, analista, categoria, concorda, posicao_fila, nota, revisto_em FROM revisoes_v01;
+            DROP TABLE revisoes_v01;
+            CREATE INDEX IF NOT EXISTS ix_rev_analista ON revisoes(analista);
+        """)
+    if "importado_por" not in _colunas(c, "lotes"):
+        c.execute("ALTER TABLE lotes ADD COLUMN importado_por TEXT")
+
+
 class BaseDados:
     def __init__(self, caminho: Path | str):
         self.caminho = Path(caminho)
         self.caminho.parent.mkdir(parents=True, exist_ok=True)
         with self.ligacao() as c:
+            # Tabelas antigas primeiro (CREATE IF NOT EXISTS não altera as existentes), depois a migração.
+            c.executescript(ESQUEMA.split("CREATE INDEX IF NOT EXISTS ix_rev_analista")[0])
+            _migrar(c)
             c.executescript(ESQUEMA)
 
     @contextmanager
@@ -94,18 +162,28 @@ class BaseDados:
         finally:
             con.close()
 
-    # ---------------- auditoria ----------------
+    # ---------------- auditoria e definições ----------------
     def auditar(self, quem: str, accao: str, detalhe: dict | str | None = None) -> None:
         det = json.dumps(detalhe, ensure_ascii=False) if isinstance(detalhe, dict) else detalhe
         with self.ligacao() as c:
             c.execute("INSERT INTO auditoria(quando, quem, accao, detalhe) VALUES (?,?,?,?)", (agora(), quem, accao, det))
 
+    def definicao(self, chave: str, omissao: str = "") -> str:
+        r = self.consultar("SELECT valor FROM definicoes WHERE chave = ?", (chave,))
+        return r[0]["valor"] if r else omissao
+
+    def definir(self, chave: str, valor: str, quem: str) -> None:
+        with self.ligacao() as c:
+            c.execute("INSERT OR REPLACE INTO definicoes(chave, valor) VALUES (?,?)", (chave, valor))
+        self.auditar(quem, "definicao", {"chave": chave, "valor": valor})
+
     # ---------------- lotes e publicações ----------------
-    def criar_lote(self, plataforma: str, via: str, descricao: str | None, ficheiro: str | None) -> int:
+    def criar_lote(self, plataforma: str, via: str, descricao: str | None, ficheiro: str | None,
+                   quem: str | None = None) -> int:
         with self.ligacao() as c:
             cur = c.execute(
-                "INSERT INTO lotes(plataforma, via, descricao, ficheiro, importado_em) VALUES (?,?,?,?,?)",
-                (plataforma, via, descricao, ficheiro, agora()),
+                "INSERT INTO lotes(plataforma, via, descricao, ficheiro, importado_em, importado_por) VALUES (?,?,?,?,?,?)",
+                (plataforma, via, descricao, ficheiro, agora(), quem),
             )
             return int(cur.lastrowid)
 
@@ -132,6 +210,11 @@ class BaseDados:
                 (limite,),
             ).fetchall()
 
+    def n_pendentes(self) -> int:
+        return self.consultar(
+            """SELECT COUNT(*) AS n FROM publicacoes p LEFT JOIN classificacoes k ON k.id_pub = p.id_pub
+               WHERE k.id_pub IS NULL""")[0]["n"]
+
     def gravar_classificacoes(self, linhas: list[dict]) -> None:
         with self.ligacao() as c:
             c.executemany(
@@ -142,40 +225,85 @@ class BaseDados:
             )
 
     # ---------------- fila e revisões ----------------
-    def fila(self, limite: int = 50, categoria: str | None = None, incluir_normais: bool = False) -> list[sqlite3.Row]:
-        filtros = ["r.id_pub IS NULL"]
+    def fila(self, limite: int = 50, categoria: str | None = None, incluir_normais: bool = False,
+             analista: str | None = None, plataforma: str | None = None, id_lote: int | None = None,
+             deslocamento: int = 0) -> list[sqlite3.Row]:
+        """Itens classificados e ainda não revistos, por prioridade decrescente.
+
+        Com `analista`, mostra o que ESSE analista ainda não reviu (dois analistas
+        revêem os mesmos itens de forma independente). Sem `analista`, mostra o que
+        ninguém reviu.
+        """
         params: list = []
+        if analista:
+            filtros = ["NOT EXISTS (SELECT 1 FROM revisoes r WHERE r.id_pub = k.id_pub AND r.analista = ?)"]
+            params.append(analista)
+        else:
+            filtros = ["NOT EXISTS (SELECT 1 FROM revisoes r WHERE r.id_pub = k.id_pub)"]
         if categoria:
             filtros.append("k.categoria = ?")
             params.append(categoria)
         elif not incluir_normais:
             filtros.append("k.categoria != 'Normal'")
-        params.append(limite)
-        sql = f"""SELECT p.id_pub, p.plataforma, p.texto, p.contexto, p.data_publicacao, k.categoria, k.confianca,
-                         k.prioridade, k.probabilidades, k.modelo, k.versao
+        if plataforma:
+            filtros.append("p.plataforma = ?")
+            params.append(plataforma)
+        if id_lote:
+            filtros.append("p.id_lote = ?")
+            params.append(id_lote)
+        params += [limite, deslocamento]
+        sql = f"""SELECT p.id_pub, p.id_lote, p.plataforma, p.texto, p.contexto, p.data_publicacao, k.categoria,
+                         k.confianca, k.prioridade, k.probabilidades, k.modelo, k.versao
                   FROM classificacoes k JOIN publicacoes p ON p.id_pub = k.id_pub
-                  LEFT JOIN revisoes r ON r.id_pub = k.id_pub
                   WHERE {' AND '.join(filtros)}
-                  ORDER BY k.prioridade DESC LIMIT ?"""
+                  ORDER BY k.prioridade DESC, p.id_pub LIMIT ? OFFSET ?"""
         with self.ligacao() as c:
             return c.execute(sql, params).fetchall()
 
-    def gravar_revisao(self, id_pub: str, analista: str, categoria: str, posicao: int | None, nota: str | None) -> None:
+    def n_fila(self, analista: str | None = None) -> int:
+        cond = ("NOT EXISTS (SELECT 1 FROM revisoes r WHERE r.id_pub = k.id_pub AND r.analista = ?)"
+                if analista else "NOT EXISTS (SELECT 1 FROM revisoes r WHERE r.id_pub = k.id_pub)")
+        return self.consultar(f"SELECT COUNT(*) AS n FROM classificacoes k WHERE k.categoria != 'Normal' AND {cond}",
+                              (analista,) if analista else ())[0]["n"]
+
+    def gravar_revisao(self, id_pub: str, analista: str, categoria: str, posicao: int | None, nota: str | None,
+                       origem: str = "fila", cega: bool = False) -> None:
         with self.ligacao() as c:
             k = c.execute("SELECT categoria FROM classificacoes WHERE id_pub = ?", (id_pub,)).fetchone()
             if k is None:
                 raise KeyError(f"Publicação {id_pub} sem classificação.")
             c.execute(
-                """INSERT OR REPLACE INTO revisoes(id_pub, analista, categoria, concorda, posicao_fila, nota, revisto_em)
-                   VALUES (?,?,?,?,?,?,?)""",
-                (id_pub, analista, categoria, int(categoria == k["categoria"]), posicao, nota, agora()),
+                """INSERT OR REPLACE INTO revisoes
+                   (id_pub, analista, categoria, concorda, posicao_fila, nota, revisto_em, origem_fila, cega)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (id_pub, analista, categoria, int(categoria == k["categoria"]), posicao, nota, agora(), origem, int(cega)),
             )
-        self.auditar(analista, "revisao", {"id_pub": id_pub, "categoria": categoria})
+        self.auditar(analista, "revisao", {"id_pub": id_pub, "categoria": categoria, "origem": origem})
 
-    # ---------------- consultas para o painel e métricas ----------------
+    # ---------------- amostra de controlo ----------------
+    def fila_amostra(self, analista: str, limite: int = 50) -> list[sqlite3.Row]:
+        with self.ligacao() as c:
+            return c.execute(
+                """SELECT p.id_pub, p.id_lote, p.plataforma, p.texto, p.contexto, p.data_publicacao, k.categoria,
+                          k.confianca, k.prioridade, k.probabilidades, k.modelo, k.versao, a.ordem
+                   FROM amostra_controlo a JOIN publicacoes p ON p.id_pub = a.id_pub
+                   JOIN classificacoes k ON k.id_pub = a.id_pub
+                   WHERE NOT EXISTS (SELECT 1 FROM revisoes r WHERE r.id_pub = a.id_pub AND r.analista = ?)
+                   ORDER BY a.id_amostra, a.ordem LIMIT ?""",
+                (analista, limite),
+            ).fetchall()
+
+    # ---------------- consultas gerais ----------------
     def consultar(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         with self.ligacao() as c:
             return c.execute(sql, params).fetchall()
+
+    def publicacao(self, id_pub: str) -> sqlite3.Row | None:
+        r = self.consultar(
+            """SELECT p.*, k.categoria, k.confianca, k.prioridade, k.probabilidades, k.modelo, k.versao, k.classificado_em
+               FROM publicacoes p LEFT JOIN classificacoes k ON k.id_pub = p.id_pub WHERE p.id_pub = ?""",
+            (id_pub,))
+        return r[0] if r else None
 
     def apagar_antigos(self, dias: int, quem: str = "sistema") -> int:
         """Remove publicações não revistas com mais de `dias` dias (minimização, Lei 22/11)."""
@@ -189,3 +317,16 @@ class BaseDados:
             n = cur.rowcount
         self.auditar(quem, "limpeza_conservacao", {"dias": dias, "apagadas": n})
         return n
+
+    def copia_seguranca(self, destino: Path, quem: str = "sistema") -> Path:
+        """Cópia consistente da base de dados (API de backup do SQLite)."""
+        destino = Path(destino)
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        with self.ligacao() as c:
+            alvo = sqlite3.connect(destino)
+            try:
+                c.backup(alvo)
+            finally:
+                alvo.close()
+        self.auditar(quem, "copia_seguranca", {"ficheiro": destino.name})
+        return destino

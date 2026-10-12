@@ -8,11 +8,15 @@ Exemplos (Windows, cmd):
     python uan.py exportar dados\\revisoes_para_treino.csv
     python uan.py limpar --dias 180
     python uan.py medir-latencia dados\\comentarios.csv --repeticoes 3
+    python uan.py criar-utilizador supervisor --nome "Manuel Muinga" --papel supervisor
+    python uan.py servir
+    python uan.py copia
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import logging
 import statistics
@@ -22,7 +26,7 @@ from pathlib import Path
 
 from sistema.base_dados import BaseDados
 from sistema.classificador import carregar_classificador
-from sistema.config import ROTULOS, obter_config
+from sistema.config import PAPEIS, ROTULOS, obter_config
 from sistema.servico import VIAS, classificar_pendentes, exportar_revisoes, importar, metricas
 
 
@@ -44,12 +48,38 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("limpar"); p.add_argument("--dias", type=int)
     p = sub.add_parser("medir-latencia", help="Mede importação+classificação numa BD temporária (H2)")
     p.add_argument("ficheiro"); p.add_argument("--repeticoes", type=int, default=3); p.add_argument("--plataforma", default="teste")
+    p = sub.add_parser("servir", help="Arranca a aplicação web")
+    p.add_argument("--porta", type=int, default=8000)
+    p.add_argument("--anfitriao", default="127.0.0.1",
+                   help="127.0.0.1 = só este computador; 0.0.0.0 = toda a rede local (use com cuidado)")
+    p = sub.add_parser("criar-utilizador", help="Cria uma conta (pede a palavra-passe)")
+    p.add_argument("utilizador"); p.add_argument("--nome", required=True); p.add_argument("--papel", choices=PAPEIS, default="analista")
+    sub.add_parser("copia", help="Cópia de segurança da base de dados para dados\\copias")
     a = ap.parse_args(argv)
 
     cfg = obter_config()
+    if a.cmd == "servir":
+        import uvicorn
+        print(f"Sistema UAN em http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}  (Ctrl+C para parar)")
+        uvicorn.run("sistema.web.app:criar_app", factory=True, host=a.anfitriao, port=a.porta, log_level="warning")
+        return
     bd = BaseDados(cfg.caminho_bd)
+    if a.cmd == "criar-utilizador":
+        from sistema.utilizadores import criar_utilizador
+        senha = getpass.getpass("Palavra-passe (mín. 10 caracteres): ")
+        if senha != getpass.getpass("Repetir: "):
+            raise SystemExit("As palavras-passe não coincidem.")
+        criar_utilizador(bd, a.utilizador, a.nome, a.papel, senha, quem="linha_de_comandos")
+        print(f"Utilizador {a.utilizador} ({a.papel}) criado.")
+        return
+    if a.cmd == "copia":
+        from datetime import datetime
+        destino = Path(cfg.caminho_bd).parent / "copias" / datetime.now().strftime("sistema_%Y%m%d_%H%M%S.db")
+        print(f"Cópia criada: {bd.copia_seguranca(destino, quem='linha_de_comandos')}")
+        return
     if a.cmd == "importar":
-        print(json.dumps(importar(bd, Path(a.ficheiro), a.plataforma, a.via, cfg.segredo_hash, a.descricao), ensure_ascii=False))
+        print(json.dumps(importar(bd, Path(a.ficheiro), a.plataforma, a.via, cfg.segredo_hash, a.descricao,
+                                 quem="linha_de_comandos"), ensure_ascii=False))
     elif a.cmd == "classificar":
         print(json.dumps(classificar_pendentes(bd, _clf(cfg), limite=10**9), ensure_ascii=False))
     elif a.cmd == "fila":
@@ -63,17 +93,21 @@ def main(argv: list[str] | None = None) -> None:
         print(f"{bd.apagar_antigos(a.dias or cfg.dias_conservacao)} publicações apagadas")
     elif a.cmd == "medir-latencia":
         clf = _clf(cfg)
-        tempos, n = [], 0
+        tempos, primeiros, n, passo = [], [], 0, None
         for _ in range(a.repeticoes):
             with tempfile.TemporaryDirectory() as d:
                 bdt = BaseDados(Path(d) / "t.db")
                 t0 = time.perf_counter()
                 info = importar(bdt, Path(a.ficheiro), a.plataforma, "manual", cfg.segredo_hash or "medicao", "medição de latência")
-                classificar_pendentes(bdt, clf, limite=10**9)
+                t_imp = time.perf_counter() - t0
+                out = classificar_pendentes(bdt, clf, limite=10**9)
                 tempos.append(time.perf_counter() - t0); n = info["novos"]
-        print(json.dumps({"modelo": clf.nome, "itens": n, "repeticoes": a.repeticoes,
+                primeiros.append(t_imp + out.get("segundos_ate_primeiro_sublote", 0)); passo = out.get("sublote")
+        print(json.dumps({"modelo": clf.nome, "itens": n, "repeticoes": a.repeticoes, "sublote": passo,
                           "segundos_total_mediana": round(statistics.median(tempos), 3),
-                          "ms_por_item_mediana": round(1000 * statistics.median(tempos) / max(n, 1), 2)}, ensure_ascii=False))
+                          "ms_por_item_mediana": round(1000 * statistics.median(tempos) / max(n, 1), 2),
+                          "segundos_ate_primeiro_sublote_na_fila_mediana": round(statistics.median(primeiros), 3)},
+                         ensure_ascii=False))
 
 
 if __name__ == "__main__":

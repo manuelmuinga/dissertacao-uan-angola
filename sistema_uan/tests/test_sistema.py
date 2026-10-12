@@ -165,28 +165,45 @@ def test_pasta_sem_modelo(tmp_path):
         carregar_classificador(tmp_path)
 
 
-# ---------------- API ----------------
+# ---------------- API (JSON, com chave) ----------------
 def test_api(tmp_path, monkeypatch, csv_exemplo):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
+    from sistema.config import Config
+    from sistema.web.app import criar_app
 
     monkeypatch.setenv("UAN_BD", str(tmp_path / "api.db"))
     monkeypatch.setenv("UAN_SEGREDO_HASH", SEGREDO)
+    monkeypatch.setenv("UAN_CHAVE_API", "chave-teste")
     monkeypatch.delenv("UAN_MODELO", raising=False)
-    sys.modules.pop("api", None)
-    api = importlib.import_module("api")
-    cli = TestClient(api.app)
-    assert cli.get("/saude").json()["modelo"] == "DEMONSTRACAO"
-    r = cli.post("/classificar", json={"textos": ["vamos todos amanhã às 8h, tragam tudo"]}).json()
+    cli = TestClient(criar_app(Config(), clf=ClassificadorDemonstracao(), sincrono=True))
+    h = {"X-Chave-API": "chave-teste"}
+    assert cli.get("/api/saude").json()["modelo"] == "DEMONSTRACAO"
+    assert cli.post("/api/classificar", json={"textos": ["x"]}).status_code == 401
+    r = cli.post("/api/classificar", json={"textos": ["vamos todos amanhã às 8h, tragam tudo"]}, headers=h).json()
     assert r[0]["categoria"] == "Mobilizacao"
     with csv_exemplo.open("rb") as f:
-        info = cli.post("/importar", params={"plataforma": "YouTube", "via": "api_oficial"},
-                        files={"ficheiro": ("lote.csv", f, "text/csv")}).json()
+        info = cli.post("/api/importar", params={"plataforma": "YouTube", "via": "api_oficial"},
+                        files={"ficheiro": ("lote.csv", f, "text/csv")}, headers=h).json()
     assert info["novos"] == 4 and info["classificados"] == 4
-    fila = cli.get("/fila").json()
+    fila = cli.get("/api/fila", headers=h).json()
     assert fila and isinstance(fila[0]["probabilidades"], dict)
-    assert cli.post("/revisoes", json={"id_pub": fila[0]["id_pub"], "analista": "an", "categoria": "Xpto"}).status_code == 422
-    assert cli.post("/revisoes", json={"id_pub": fila[0]["id_pub"], "analista": "an", "categoria": "Odio"}).status_code == 200
-    assert cli.post("/importar", params={"plataforma": "YouTube", "via": "captcha"},
-                    files={"ficheiro": ("l.csv", b"texto\nola mundo", "text/csv")}).status_code == 422
-    assert cli.get("/metricas").json()["n_revistas"] == 1
+    assert cli.post("/api/revisoes", json={"id_pub": fila[0]["id_pub"], "analista": "an", "categoria": "Xpto"},
+                    headers=h).status_code == 422
+    assert cli.post("/api/revisoes", json={"id_pub": fila[0]["id_pub"], "analista": "an", "categoria": "Odio"},
+                    headers=h).status_code == 200
+    assert cli.post("/api/importar", params={"plataforma": "YouTube", "via": "captcha"},
+                    files={"ficheiro": ("l.csv", b"texto\nola mundo", "text/csv")}, headers=h).status_code == 422
+    assert cli.get("/api/metricas", headers=h).json()["n_revistas"] == 1
+
+
+def test_api_desactivada_sem_chave(tmp_path, monkeypatch):
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+    from sistema.config import Config
+    from sistema.web.app import criar_app
+
+    monkeypatch.setenv("UAN_BD", str(tmp_path / "a.db"))
+    monkeypatch.delenv("UAN_CHAVE_API", raising=False)
+    cli = TestClient(criar_app(Config(), clf=ClassificadorDemonstracao(), sincrono=True))
+    assert cli.get("/api/fila", headers={"X-Chave-API": ""}).status_code == 403
