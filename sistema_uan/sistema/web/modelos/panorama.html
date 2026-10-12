@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_comum.html" import cat with context %}
+{% block titulo %}Panorama{% endblock %}
+{% block conteudo %}
+{% set CORES = {'Normal': 'var(--c-normal)', 'Desinformacao': 'var(--c-desinformacao)', 'Odio': 'var(--c-odio)', 'Mobilizacao': 'var(--c-mobilizacao)'} %}
+<div class="cabecalho">
+  <div><h1>Panorama</h1><p>Contagens agregadas por categoria, dia e plataforma. O sistema não mostra perfis de autores.</p></div>
+  <a class="botao" href="/fila">Abrir a fila{% if n_fila_meus %} ({{ n_fila_meus|num }}){% endif %}</a>
+</div>
+
+<div class="grelha g4">
+  <div class="cartao kpi"><div class="valor">{{ pan.publicacoes|num }}</div><div class="rotulo">Publicações guardadas</div></div>
+  <div class="cartao kpi"><div class="valor">{{ (pan.classificadas - pan.por_categoria['Normal'])|num }}</div><div class="rotulo">Sinalizadas pelo modelo</div></div>
+  <div class="cartao kpi"><div class="valor">{{ n_fila_meus|num }}</div><div class="rotulo">Por rever por si</div></div>
+  <div class="cartao kpi"><div class="valor">{{ (minhas.hoje or 0)|num }}</div><div class="rotulo">Revistas por si hoje ({{ (minhas.total or 0)|num }} no total)</div></div>
+</div>
+{% if pan.pendentes %}<div class="faixa aviso mt">{{ pan.pendentes|num }} publicações ainda não foram classificadas.{% if sessao.papel == 'supervisor' %} <a href="/lotes">Classificar na página Lotes</a>.{% endif %}</div>{% endif %}
+
+<div class="grelha g2 seccao">
+  <div class="cartao">
+    <h2>Classificação do modelo</h2>
+    <p class="suave">Categoria mais provável de cada publicação classificada.</p>
+    {% set total = pan.classificadas or 1 %}
+    {% set maximo = [pan.por_categoria.values()|max, 1]|max %}
+    <svg class="grafico" viewBox="0 0 520 172" role="img" aria-label="Publicações por categoria prevista">
+      {% for c in ROTULOS %}{% set n = pan.por_categoria[c] %}{% set y = 12 + loop.index0 * 40 %}
+      <text x="0" y="{{ y + 15 }}" class="forte">{{ NOMES[c] }}</text>
+      <rect x="150" y="{{ y + 2 }}" width="{{ (290 * n / maximo)|round(1) }}" height="18" rx="4" fill="{{ CORES[c] }}"></rect>
+      <text x="{{ 158 + (290 * n / maximo)|round(1) }}" y="{{ y + 15 }}">{{ n|num }} · {{ (n / total)|pct }}</text>
+      {% endfor %}
+    </svg>
+  </div>
+  <div class="cartao">
+    <h2>Decisões dos analistas</h2>
+    <p class="suave">Todas as revisões gravadas, de todos os analistas.</p>
+    {% set td = [pan.decisoes.values()|sum, 1]|max %}
+    {% set md = [pan.decisoes.values()|max, 1]|max %}
+    <svg class="grafico" viewBox="0 0 520 172" role="img" aria-label="Decisões dos analistas por categoria">
+      {% for c in ROTULOS %}{% set n = pan.decisoes[c] %}{% set y = 12 + loop.index0 * 40 %}
+      <text x="0" y="{{ y + 15 }}" class="forte">{{ NOMES[c] }}</text>
+      <rect x="150" y="{{ y + 2 }}" width="{{ (290 * n / md)|round(1) }}" height="18" rx="4" fill="{{ CORES[c] }}" fill-opacity=".55"></rect>
+      <text x="{{ 158 + (290 * n / md)|round(1) }}" y="{{ y + 15 }}">{{ n|num }}</text>
+      {% endfor %}
+    </svg>
+  </div>
+</div>
+
+<div class="cartao seccao">
+  <h2>Publicações sinalizadas por dia</h2>
+  <p class="suave">Últimos 14 dias, pela data de publicação (ou de recolha, quando a plataforma não a dá). Normal fica de fora.</p>
+  {% set dias = serie.keys()|list %}
+  {% if dias %}
+  {% set totais = [] %}{% for d in dias %}{% set _ = totais.append(serie[d]['Desinformacao'] + serie[d]['Odio'] + serie[d]['Mobilizacao']) %}{% endfor %}
+  {% set mx = [totais|max, 1]|max %}
+  {% set larg = 1000 / (dias|length) %}
+  <svg class="grafico" viewBox="0 0 1040 230" role="img" aria-label="Publicações sinalizadas por dia">
+    <line x1="30" x2="1040" y1="190" y2="190" stroke="var(--linha-forte)"></line>
+    <text x="0" y="24">{{ mx|num }}</text><text x="0" y="194">0</text>
+    {% for d in dias %}{% set x = 36 + loop.index0 * larg %}{% set ns = namespace(base=190) %}
+      {% for c in ['Desinformacao', 'Odio', 'Mobilizacao'] %}{% set h = 170 * serie[d][c] / mx %}
+        {% if h > 0 %}<rect x="{{ x + larg * 0.15 }}" y="{{ ns.base - h }}" width="{{ larg * 0.7 }}" height="{{ h }}" fill="{{ CORES[c] }}"><title>{{ d }} · {{ NOMES[c] }}: {{ serie[d][c] }}</title></rect>{% endif %}
+        {% set ns.base = ns.base - h %}
+      {% endfor %}
+      <text x="{{ x + larg / 2 }}" y="210" text-anchor="middle">{{ d[8:10] }}/{{ d[5:7] }}</text>
+      {% if totais[loop.index0] %}<text x="{{ x + larg / 2 }}" y="{{ ns.base - 5 }}" text-anchor="middle" class="forte">{{ totais[loop.index0] }}</text>{% endif %}
+    {% endfor %}
+  </svg>
+  <div class="legenda">{% for c in ['Desinformacao', 'Odio', 'Mobilizacao'] %}{{ cat(c) }}{% endfor %}</div>
+  {% else %}
+  <div class="vazio"><b>Sem dados nos últimos 14 dias</b>Importe um lote na página Lotes.</div>
+  {% endif %}
+</div>
+
+<div class="grelha g2 seccao">
+  <div class="cartao">
+    <h2>Por plataforma</h2>
+    {% if pan.por_plataforma %}
+    <table class="tabela"><thead><tr><th>Plataforma</th><th class="num">Classificadas</th><th class="num">Sinalizadas</th><th class="num">%</th></tr></thead><tbody>
+    {% for r in pan.por_plataforma %}<tr><td>{{ r.plataforma }}</td><td class="num">{{ r.total|num }}</td><td class="num">{{ r.sinalizadas|num }}</td><td class="num">{{ (r.sinalizadas / r.total)|pct }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="suave">Sem publicações classificadas.</p>{% endif %}
+  </div>
+  <div class="cartao">
+    <h2>Últimos lotes</h2>
+    {% if lotes %}
+    <table class="tabela"><thead><tr><th>Lote</th><th>Origem</th><th class="num">Novas</th><th>Importado</th></tr></thead><tbody>
+    {% for l in lotes %}<tr><td><a href="/fila?lote={{ l.id_lote }}">#{{ l.id_lote }}</a></td><td>{{ l.plataforma }} · <span class="suave">{{ VIAS_NOMES[l.via] }}</span></td><td class="num">{{ l.n_novos|num }}</td><td>{{ l.importado_em|hora }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="suave">Ainda não há lotes.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

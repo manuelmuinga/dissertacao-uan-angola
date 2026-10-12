@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_comum.html" import cat, barras_prob with context %}
+{% block titulo %}{{ 'Fila de revisão' if modo == 'fila' else 'Amostra de controlo' }}{% endblock %}
+{% block conteudo %}
+{% if modo == 'fila' %}
+<div class="cabecalho">
+  <div><h1>Fila de revisão</h1><p>Ordenada pela probabilidade de não ser Normal. Cada analista revê a sua fila de forma independente.</p></div>
+  <div class="atalhos"><kbd>J</kbd>/<kbd>K</kbd> mudar de item · <kbd>1</kbd>–<kbd>4</kbd> decidir · <kbd>N</kbd> nota</div>
+</div>
+<form class="filtros" method="get" action="/fila">
+  <div class="campo"><label for="f-cat">Categoria prevista</label>
+    <select id="f-cat" name="categoria"><option value="">Todas as ameaças</option>
+      {% for c in ROTULOS %}<option value="{{ c }}" {{ 'selected' if filtros.categoria == c }}>{{ NOMES[c] }}</option>{% endfor %}</select></div>
+  <div class="campo"><label for="f-plat">Plataforma</label>
+    <select id="f-plat" name="plataforma"><option value="">Todas</option>
+      {% for p in plataformas %}<option {{ 'selected' if filtros.plataforma == p }}>{{ p }}</option>{% endfor %}</select></div>
+  <div class="campo"><label for="f-lote">Lote</label>
+    <select id="f-lote" name="lote"><option value="">Todos</option>
+      {% for l in lotes_opcoes %}<option value="{{ l.id_lote }}" {{ 'selected' if filtros.lote == l.id_lote|string }}>#{{ l.id_lote }} · {{ l.plataforma }}{% if l.descricao %} · {{ l.descricao[:40] }}{% endif %}</option>{% endfor %}</select></div>
+  <button class="botao secundario" type="submit">Filtrar</button>
+</form>
+{% if cega %}<div class="faixa info">Revisão cega activa: a sugestão do modelo está escondida para não influenciar a decisão.</div>{% endif %}
+{% else %}
+<div class="cabecalho">
+  <div><h1>Amostra de controlo</h1><p>Publicações que o modelo classificou como Normal, sorteadas ao acaso. Servem para estimar quantas ameaças a fila não mostra.</p></div>
+  <div class="atalhos"><kbd>J</kbd>/<kbd>K</kbd> mudar de item · <kbd>1</kbd>–<kbd>4</kbd> decidir</div>
+</div>
+<div class="faixa info">Aqui a sugestão do modelo está sempre escondida. Decida como se o texto viesse de uma recolha sem filtro.</div>
+{% if sessao.papel == 'supervisor' %}
+<details class="cartao detalhes" {{ 'open' if not amostras }}>
+  <summary>Criar uma amostra nova ({{ normais_livres|num }} publicações Normal disponíveis)</summary>
+  <form class="linha-form mt" method="post" action="/amostra/gerar">
+    <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <div class="campo"><label for="a-n">Tamanho</label><input id="a-n" type="number" name="n" value="50" min="1" max="1000"></div>
+    <div class="campo"><label for="a-lote">Lote</label><select id="a-lote" name="lote"><option value="">Todos</option>
+      {% for l in lotes_opcoes %}<option value="{{ l.id_lote }}">#{{ l.id_lote }} · {{ l.plataforma }}</option>{% endfor %}</select></div>
+    <div class="campo"><label for="a-sem">Semente (opcional)</label><input id="a-sem" type="number" name="semente" placeholder="aleatória"></div>
+    <button class="botao" type="submit">Sortear</button>
+  </form>
+  <p class="ajuda mt">Todos os analistas revêem a mesma amostra. A semente fica registada na auditoria, para o sorteio poder ser repetido.</p>
+  {% if amostras %}
+  <table class="tabela mt"><thead><tr><th>Amostra</th><th class="num">Itens</th><th>Criada</th><th>Por</th></tr></thead><tbody>
+  {% for a in amostras %}<tr><td>#{{ a.id_amostra }}</td><td class="num">{{ a.n }}</td><td>{{ a.criada_em|hora }}</td><td>{{ a.criada_por }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% endif %}
+</details>
+<div class="mt"></div>
+{% endif %}
+{% endif %}
+
+{% if itens %}
+{% for it in itens %}
+<article class="item" data-id="{{ it.id_pub }}" tabindex="-1" id="i-{{ loop.index }}">
+  <div class="item-pos">
+    {% if it.posicao %}<b>{{ it.posicao }}</b><small>posição</small>{% else %}<b>{{ loop.index }}</b><small>item</small>{% endif %}
+  </div>
+  <div class="item-corpo">
+    <div class="item-meta">
+      <span class="pilula forte">{{ it.plataforma }}</span>
+      {% if it.data_publicacao %}<span>{{ it.data_publicacao|hora(True) }}</span>{% endif %}
+      <span>lote #{{ it.id_lote }}</span>
+      <a href="/publicacao/{{ it.id_pub }}">detalhe</a>
+    </div>
+    {% if it.contexto %}<div class="item-meta">Contexto: {{ it.contexto }}</div>{% endif %}
+    <p class="item-texto">{{ it.texto }}</p>
+  </div>
+  <div class="item-lado">
+    <form method="post" action="/rever">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <input type="hidden" name="id_pub" value="{{ it.id_pub }}">
+      <input type="hidden" name="origem" value="{{ modo }}">
+      <input type="hidden" name="posicao" value="{{ it.posicao or '' }}">
+      <input type="hidden" name="voltar" value="{{ voltar }}">
+      {% if not cega %}
+      <div class="sugestao">Sugestão do modelo · prioridade {{ it.prioridade|pct }}</div>
+      {{ cat(it.categoria) }}
+      {{ barras_prob(it.probs) }}
+      {% else %}
+      <div class="sugestao">A sua decisão</div>
+      {% endif %}
+      <div class="decisoes" role="group" aria-label="Decisão do analista">
+        {% for c in ROTULOS %}
+        <button class="decisao d-{{ c }} {{ 'sugerida' if (not cega and c == it.categoria) }}" type="submit" name="categoria" value="{{ c }}" data-tecla="{{ loop.index }}"><kbd>{{ loop.index }}</kbd>{{ NOMES[c] }}</button>
+        {% endfor %}
+      </div>
+      <div class="nota"><input type="text" name="nota" maxlength="500" placeholder="Nota opcional (ex.: protesto pacífico)" aria-label="Nota"></div>
+    </form>
+  </div>
+</article>
+{% endfor %}
+{% if modo == 'fila' %}
+<div class="paginacao">
+  {% if pagina_n > 1 %}<a class="botao secundario" href="/fila?{{ qs(pagina_n=pagina_n - 1) }}">← Anteriores</a>{% else %}<span></span>{% endif %}
+  {% if ha_mais %}<a class="botao secundario" href="/fila?{{ qs(pagina_n=pagina_n + 1) }}">Seguintes →</a>{% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="cartao vazio">
+  {% if modo == 'fila' %}<b>Não há itens por rever com estes filtros</b>Quando chegar um lote novo, as publicações sinalizadas aparecem aqui.
+  {% else %}<b>Não há itens da amostra por rever</b>{% if sessao.papel == 'supervisor' %}Crie uma amostra acima.{% else %}O supervisor ainda não criou uma amostra, ou já reviu todos os itens.{% endif %}{% endif %}
+</div>
+{% endif %}
+<p class="ajuda mt">Uma convocatória para manifestação pacífica é exercício de direitos (arts. 40.º e 47.º da Constituição) e deve ser classificada como Normal.</p>
+{% endblock %}

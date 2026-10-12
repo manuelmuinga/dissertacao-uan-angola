@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}Métricas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><h1>Métricas de avaliação</h1><p>Calculadas a partir das revisões humanas (protocolo da Secção 3.9 da dissertação).</p></div>
+  <div class="linha-form"><a class="botao secundario" href="/metricas/metricas.json">Descarregar JSON</a><a class="botao secundario" href="/metricas/revisoes.csv">Exportar revisões para treino</a></div>
+</div>
+
+<div class="grelha g4">
+  <div class="cartao kpi"><div class="valor">{{ m.n_revistas|num }}</div><div class="rotulo">Revisões da fila</div></div>
+  <div class="cartao kpi"><div class="valor">{{ m.concordancia|pct if m.concordancia is defined else '—' }}</div><div class="rotulo">Concordância analista–sistema</div></div>
+  <div class="cartao kpi"><div class="valor">{{ m.kappa_analista_sistema|num(3) if m.kappa_analista_sistema is defined else '—' }}</div><div class="rotulo">κ analista–sistema</div></div>
+  <div class="cartao kpi"><div class="valor">{{ m.inferencia_ms_por_item|num(0) if m.inferencia_ms_por_item is defined else '—' }}{% if m.inferencia_ms_por_item is defined %}<small> ms</small>{% endif %}</div><div class="rotulo">Inferência por publicação</div></div>
+</div>
+
+<div class="cartao seccao">
+  <h2>Por analista</h2>
+  <p class="suave">Precisão@K: fracção de ameaças confirmadas entre os K itens de maior prioridade que o analista reviu.</p>
+  {% if m.por_analista %}
+  <div class="tabela-envolvente"><table class="tabela"><thead><tr><th>Analista</th><th class="num">Revisões</th><th class="num">Precisão@10</th><th class="num">@25</th><th class="num">@50</th><th class="num">@100</th><th class="num">Concordância</th><th class="num">κ analista–sistema</th></tr></thead><tbody>
+  {% for a, b in m.por_analista.items() %}<tr><td>{{ a }}</td><td class="num">{{ b.n_revistas|num }}</td>
+    {% for k in [10, 25, 50, 100] %}<td class="num">{{ b.precisao_at_k[k]|pct if b.precisao_at_k and k in b.precisao_at_k else '—' }}</td>{% endfor %}
+    <td class="num">{{ b.concordancia|pct }}</td><td class="num">{{ b.kappa_analista_sistema|num(3) }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="suave">Ainda não há revisões.</p>{% endif %}
+</div>
+
+<div class="grelha g2 seccao">
+  <div class="cartao">
+    <h2>Acordo entre analistas</h2>
+    <p class="suave">Itens revistos por dois analistas, de forma independente.</p>
+    {% if m.entre_analistas %}
+    <table class="tabela"><thead><tr><th>Par</th><th class="num">Itens comuns</th><th class="num">Concordância</th><th class="num">κ de Cohen</th></tr></thead><tbody>
+    {% for p in m.entre_analistas %}<tr><td>{{ p.analistas|join(' – ') }}</td><td class="num">{{ p.n_comuns|num }}</td><td class="num">{{ p.concordancia|pct }}</td><td class="num">{{ p.kappa|num(3) }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="suave">Precisa de pelo menos dois analistas a rever os mesmos itens.</p>{% endif %}
+  </div>
+  <div class="cartao">
+    <h2>Amostra de controlo (sensibilidade)</h2>
+    <p class="suave">Itens classificados como Normal que o analista considerou ameaça. Estima o que a fila deixa passar.</p>
+    {% if m.amostra_controlo %}
+    <table class="tabela"><thead><tr><th>Analista</th><th class="num">Revistos</th><th class="num">Ameaças</th><th class="num">Taxa [IC 95%]</th></tr></thead><tbody>
+    {% for a, b in m.amostra_controlo.items() %}<tr><td>{{ a }}</td><td class="num">{{ b.revistos|num }}</td><td class="num">{{ b.ameacas_nao_sinalizadas|num }}</td><td class="num">{{ b.taxa|pct(1) }} [{{ b.ic95[0]|pct(1) }}; {{ b.ic95[1]|pct(1) }}]</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="suave">{{ m.n_amostra_controlo|num }} itens na amostra; ainda sem revisões.</p>{% endif %}
+  </div>
+</div>
+
+<div class="grelha g2 seccao">
+  <div class="cartao">
+    <h2>Por categoria prevista</h2>
+    {% if m.por_categoria %}
+    <div class="tabela-envolvente"><table class="tabela"><thead><tr><th>Categoria</th><th class="num">Revistas</th><th class="num">Confirmadas</th><th class="num">Precisão</th></tr></thead><tbody>
+    {% for c, v in m.por_categoria.items() %}<tr><td><span class="cat cat-{{ c }}">{{ NOMES[c] }}</span></td><td class="num">{{ v.previstas|num }}</td><td class="num">{{ v.confirmadas|num }}</td><td class="num">{{ (v.confirmadas / v.previstas)|pct if v.previstas else '—' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="suave">Sem revisões.</p>{% endif %}
+  </div>
+  <div class="cartao">
+    <h2>Tempo até à fila (H2)</h2>
+    <p class="suave">Da importação até à classificação de cada publicação. Não inclui o tempo entre a publicação original e a recolha.</p>
+    {% if m.latencia_s %}
+    <table class="tabela"><tbody>
+      <tr><td>Publicações</td><td class="num">{{ m.latencia_s.n|num }}</td></tr>
+      <tr><td>Mediana</td><td class="num">{{ m.latencia_s.mediana|num(1) }} s</td></tr>
+      <tr><td>Percentil 95</td><td class="num">{{ m.latencia_s.p95|num(1) }} s</td></tr>
+      <tr><td>Máximo</td><td class="num">{{ m.latencia_s.max|num(1) }} s</td></tr>
+    </tbody></table>
+    {% else %}<p class="suave">Sem classificações.</p>{% endif %}
+  </div>
+</div>
+<p class="ajuda mt">As revisões exportadas têm origem «revisao_sistema». Use-as só no treino, nunca no teste: foram escolhidas pela fila do modelo e não equivalem à anotação aleatória por três anotadores. Itens em que os analistas discordaram não são exportados.</p>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block titulo %}Utilizadores{% endblock %}
+{% block conteudo %}
+<div class="cabecalho"><div><h1>Utilizadores</h1><p>Os analistas revêem a fila; os supervisores importam lotes, vêem as métricas e gerem contas.</p></div></div>
+<div class="cartao">
+  <h2>Nova conta</h2>
+  <form class="linha-form" method="post" action="/utilizadores/criar">
+    <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <div class="campo"><label for="n-u">Utilizador</label><input id="n-u" type="text" name="utilizador" value="{{ form.utilizador if form else '' }}" required></div>
+    <div class="campo"><label for="n-n">Nome</label><input id="n-n" type="text" name="nome" value="{{ form.nome if form else '' }}" required></div>
+    <div class="campo"><label for="n-p">Papel</label><select id="n-p" name="papel">{% for p in PAPEIS %}<option {{ 'selected' if form and form.papel == p }}>{{ p }}</option>{% endfor %}</select></div>
+    <div class="campo"><label for="n-s">Palavra-passe inicial</label><input id="n-s" type="password" name="senha" minlength="10" autocomplete="new-password" required></div>
+    <button class="botao" type="submit">Criar</button>
+  </form>
+  <p class="ajuda">Entregue a palavra-passe inicial em mão e peça ao analista que a mude em «A minha conta».</p>
+</div>
+<div class="cartao"><div class="tabela-envolvente"><table class="tabela"><thead><tr><th>Utilizador</th><th>Nome</th><th>Papel</th><th class="num">Revisões</th><th>Último acesso</th><th>Estado</th><th>Acções</th></tr></thead><tbody>
+{% for u in utilizadores %}<tr>
+  <td class="mono">{{ u.utilizador }}</td><td>{{ u.nome }}</td><td>{{ u.papel }}</td><td class="num">{{ u.revisoes|num }}</td><td>{{ u.ultimo_acesso|hora }}</td>
+  <td>{% if u.activo %}<span class="pilula forte">activo</span>{% else %}<span class="pilula">inactivo</span>{% endif %}</td>
+  <td>
+    {% if u.utilizador != sessao.utilizador %}
+    <form method="post" action="/utilizadores/{{ u.utilizador }}/estado" class="linha-form" data-confirmar="{{ 'Desactivar' if u.activo else 'Reactivar' }} a conta {{ u.utilizador }}?">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}"><input type="hidden" name="activo" value="{{ 0 if u.activo else 1 }}">
+      <button class="botao pequeno {{ 'perigo' if u.activo else 'secundario' }}" type="submit">{{ 'Desactivar' if u.activo else 'Reactivar' }}</button>
+    </form>
+    <details class="mt"><summary class="suave">Nova palavra-passe</summary>
+      <form method="post" action="/utilizadores/{{ u.utilizador }}/senha" class="linha-form mt">
+        <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+        <input type="password" name="senha" minlength="10" autocomplete="new-password" required aria-label="Nova palavra-passe">
+        <button class="botao pequeno secundario" type="submit">Definir</button>
+      </form>
+    </details>
+    {% else %}<span class="suave">a sua conta</span>{% endif %}
+  </td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

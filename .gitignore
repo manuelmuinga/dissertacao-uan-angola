@@ -11,5 +11,6 @@ graficos/
 node_modules/
 
 # Pesos dos modelos (centenas de MB) e ficheiros temporários do Word
-modelos/
+/modelos/
+/sistema_uan/modelos/
 ~$*

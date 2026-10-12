@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}A minha conta{% endblock %}
+{% block conteudo %}
+<div class="cabecalho"><div><h1>A minha conta</h1><p>{{ sessao.nome }} · <span class="mono">{{ sessao.utilizador }}</span> · {{ sessao.papel }}</p></div></div>
+<div class="cartao" style="max-width:480px">
+  <h2>Mudar a palavra-passe</h2>
+  <form method="post" action="/conta/senha">
+    <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <div class="campo"><label for="c-a">Palavra-passe actual</label><input id="c-a" type="password" name="actual" autocomplete="current-password" required></div>
+    <div class="campo"><label for="c-n">Nova palavra-passe</label><input id="c-n" type="password" name="senha" minlength="10" autocomplete="new-password" required><div class="ajuda">Pelo menos 10 caracteres.</div></div>
+    <div class="campo"><label for="c-n2">Repetir a nova palavra-passe</label><input id="c-n2" type="password" name="senha2" minlength="10" autocomplete="new-password" required></div>
+    <button class="botao" type="submit">Mudar e voltar a entrar</button>
+  </form>
+</div>
+{% endblock %}
