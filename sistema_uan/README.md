@@ -49,7 +49,7 @@ set UAN_SEGREDO_HASH=uma-frase-secreta-longa-que-nao-vai-para-o-git
 | `UAN_MODELO` | (vazio) | Pasta do modelo. Vazio = classificador de **demonstração** (palavras-chave, não é um modelo) |
 | `UAN_SEGREDO_HASH` | (vazio) | Segredo do pseudónimo dos autores. Obrigatório para importar |
 | `UAN_BD` | `dados\sistema.db` | Ficheiro da base de dados |
-| `UAN_MAX_LENGTH` | 128 | Igual ao `--max-length` do treino |
+| `UAN_MAX_LENGTH` | 256 | Igual ao `--max-length` do treino (256 no modelo de referência) |
 | `UAN_LOTE` | 32 | Tamanho do lote de inferência |
 | `UAN_DISPOSITIVO` | auto | `cpu`, `cuda` ou `auto` |
 | `UAN_DIAS_CONSERVACAO` | 180 | Prazo para `uan.py limpar` |

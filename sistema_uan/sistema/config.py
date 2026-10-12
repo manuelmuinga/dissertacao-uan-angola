@@ -33,7 +33,7 @@ class Config:
     caminho_modelo: Path | None = field(
         default_factory=lambda: Path(p) if (p := os.getenv("UAN_MODELO")) else None
     )
-    max_length: int = field(default_factory=lambda: int(os.getenv("UAN_MAX_LENGTH", "128")))
+    max_length: int = field(default_factory=lambda: int(os.getenv("UAN_MAX_LENGTH", "256")))
     tamanho_lote: int = field(default_factory=lambda: int(os.getenv("UAN_LOTE", "32")))
     dispositivo: str = field(default_factory=lambda: os.getenv("UAN_DISPOSITIVO", "auto"))
     # Segredo para o hash dos autores. Sem ele, um hash SHA-256 simples de um
