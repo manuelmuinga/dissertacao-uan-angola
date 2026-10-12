@@ -1,0 +1,21 @@
+{
+  "modelo": "BERTimbau (neuralmind/bert-base-portuguese-cased) afinado para 4 categorias",
+  "categorias": [
+    "Normal",
+    "Desinformacao",
+    "Odio",
+    "Mobilizacao"
+  ],
+  "semente": 42,
+  "epocas": 3,
+  "lote": 16,
+  "taxa_aprendizagem": 2e-05,
+  "max_length": 256,
+  "perda": "weighted_ce",
+  "corpus": "híbrido v13 (26 859 registos)",
+  "divisao_igual_a_referencia": true,
+  "f1_macro_teste": 0.808,
+  "kappa_teste": 0.8242,
+  "treinado_em": "2026-10-12T17:27",
+  "uso": "set UAN_MODELO=<esta pasta> e set UAN_MAX_LENGTH=256 no sistema_uan"
+}
