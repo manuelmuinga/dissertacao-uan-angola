@@ -9,3 +9,7 @@ modelos/bilstm/
 graficos/
 .scrapy/
 node_modules/
+
+# Pesos dos modelos (centenas de MB) e ficheiros temporários do Word
+modelos/
+~$*
