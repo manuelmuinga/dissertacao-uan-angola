@@ -19,7 +19,7 @@
   {% endif %}{% endfor %}
 </svg>
 <div class="legenda mapa-legenda">
-  <span class="escala"><i></i><span>0%</span><span>{{ m.max_taxa|pct(1) }}</span></span>
+  <span class="escala"><span>0%</span><i></i><span>{{ m.max_taxa|pct(1) }}</span></span>
   <span><i class="amostra-cor" style="background:#eceee9"></i>sem publicações</span>
   <span><i class="amostra-cor tracejado"></i>menos de {{ m.min_casos }} publicações (taxa não calculada)</span>
   <span><b class="sobe">▲</b>/<b class="desce">▼</b> variação face ao período anterior</span>

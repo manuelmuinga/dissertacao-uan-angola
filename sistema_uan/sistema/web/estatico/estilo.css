@@ -212,9 +212,11 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .mapa a path { cursor: pointer; transition: opacity .15s; }
 .mapa a:hover path, .mapa a:focus path { opacity: .8; }
 .mapa .mapa-nome { font: 600 11px var(--letra); fill: var(--tinta); paint-order: stroke; stroke: rgba(255,255,255,.85); stroke-width: 3px; pointer-events: none; }
-.mapa .mapa-var { font: 700 11px var(--letra); paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 3px; pointer-events: none; }
-.mapa .sobe, .sobe { color: var(--perigo); fill: var(--perigo); }
-.mapa .desce, .desce { color: var(--ok); fill: var(--ok); }
+.mapa .mapa-var { font: 700 11px var(--letra); paint-order: stroke; stroke: #fff; stroke-width: 3.5px; stroke-linejoin: round; pointer-events: none; }
+.sobe { color: var(--perigo); }
+.desce { color: var(--ok); }
+.mapa .mapa-var.sobe { fill: #5c0f08; }
+.mapa .mapa-var.desce { fill: #14532d; }
 .mapa-legenda { align-items: center; }
 .mapa-legenda .escala { display: inline-flex; align-items: center; gap: 6px; }
 .mapa-legenda .escala i { display: inline-block; width: 110px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #f6efe6, #ead2c2, #a3261a); }
