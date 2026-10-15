@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Alertas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><h1>Alertas</h1>
+  <p>Gerados só a partir de decisões dos analistas: uma ameaça confirmada, ou ameaças confirmadas a crescer numa província.</p></div>
+  {% if n_alertas_novos %}
+  <form method="post" action="/alertas/vistos"><input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <button class="botao secundario" type="submit">Marcar todos como vistos ({{ n_alertas_novos|num }})</button></form>
+  {% endif %}
+</div>
+
+<form class="filtros" method="get" action="/alertas">
+  <div class="campo"><label for="tipo">Tipo</label>
+    <select id="tipo" name="tipo">
+      <option value="">Todos</option>
+      <option value="confirmado" {{ 'selected' if tipo == 'confirmado' }}>Ameaça confirmada</option>
+      <option value="tendencia" {{ 'selected' if tipo == 'tendencia' }}>Tendência</option>
+    </select></div>
+  <button class="botao secundario" type="submit">Filtrar</button>
+  <span class="atalhos">Regras actuais: {{ defs.min_confirmacoes }} analista(s) para confirmar; tendência com pelo menos {{ defs.min_casos }} casos em {{ defs.janela_dias }} dias e crescimento de {{ ((defs.factor - 1) * 100)|round|int }}% ou mais.
+  E-mail: {{ 'activo para ' ~ defs.destinatarios|length ~ ' destinatário(s)' if email_ok and defs.destinatarios else 'não configurado' }}.</span>
+</form>
+
+{% if alertas %}
+<div class="cartao">
+  <div class="tabela-envolvente"><table class="tabela">
+    <thead><tr><th>Quando</th><th>Alerta</th><th>Província</th><th>Categoria</th><th>E-mail</th><th></th></tr></thead>
+    <tbody>
+    {% for a in alertas %}{% set det = a.detalhe|json %}
+    <tr class="{{ '' if a.visto else 'novo' }}">
+      <td style="white-space:nowrap">{{ a.criado_em|hora }}{% if not a.visto %} <span class="pilula forte">novo</span>{% endif %}</td>
+      <td>{% if a.tipo == 'confirmado' %}<b>Ameaça confirmada</b> <span class="suave">por {{ det.analistas_confirmaram }} analista(s), publicação de {{ det.dia_publicacao|hora(true) if det.dia_publicacao else '—' }}</span>{% else %}<b>Tendência</b> {{ a.titulo[11:] }}{% endif %}
+        {% if a.tipo == 'tendencia' %}<div class="ajuda">Janela {{ det.janela }}: {{ det.confirmadas_antes }} → {{ det.confirmadas }} confirmadas; peso no total recolhido {{ det.peso_antes|pct(1) }} → {{ det.peso|pct(1) }} ({{ det.recolhidas_antes }} → {{ det.recolhidas }} publicações recolhidas).</div>{% endif %}</td>
+      <td>{{ 'Todo o país' if a.provincia == 'NAC' else nomes_provincias(det.provincias if a.tipo == 'confirmado' else [a.provincia]) }}</td>
+      <td>{{ NOMES.get(a.categoria, '—') }}</td>
+      <td class="suave">{{ {'enviado': 'enviado', 'nao_configurado': 'não configurado', 'nao_enviado': 'pendente'}.get(a.email_estado, a.email_estado) }}</td>
+      <td style="white-space:nowrap">{% if a.id_pub %}<a href="/publicacao/{{ a.id_pub }}">Ver publicação</a>{% else %}<a href="/mapa?dias={{ defs.janela_dias }}">Ver no mapa</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody></table></div>
+  <div class="paginacao">
+    {% if pagina_n > 1 %}<a class="botao secundario pequeno" href="/alertas?tipo={{ tipo }}&pagina_n={{ pagina_n - 1 }}">← Anteriores</a>{% else %}<span></span>{% endif %}
+    {% if ha_mais %}<a class="botao secundario pequeno" href="/alertas?tipo={{ tipo }}&pagina_n={{ pagina_n + 1 }}">Seguintes →</a>{% endif %}
+  </div>
+</div>
+{% else %}
+<div class="cartao vazio"><b>Ainda não há alertas</b>Os alertas aparecem quando um analista confirma uma ameaça na fila.</div>
+{% endif %}
+{% endblock %}

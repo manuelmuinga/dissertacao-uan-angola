@@ -10,6 +10,8 @@ Tabelas:
 - amostra_controlo: itens classificados como Normal sorteados para estimar a
   sensibilidade (o que a fila não mostra).
 - fontes: canais, vídeos, feeds e sítios públicos de onde o sistema recolhe.
+- pub_provincias: províncias MENCIONADAS em cada publicação (não a localização do autor).
+- alertas e alertas_vistos: alertas confirmados e de tendência, e quem já os viu.
 - utilizadores e sessoes: acesso à aplicação web.
 - definicoes: opções do supervisor (por exemplo, revisão cega).
 - auditoria: registo de acções (quem fez o quê e quando).
@@ -23,6 +25,10 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
+
+from .geografia import detectar_provincias
+
+GEO_VERSAO = "1"  # aumentar quando a lista de topónimos mudar, para reindexar
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS lotes (
@@ -108,6 +114,30 @@ CREATE TABLE IF NOT EXISTS fontes (
     ultima_recolha TEXT,
     ultimo_estado  TEXT
 );
+CREATE TABLE IF NOT EXISTS pub_provincias (
+    id_pub     TEXT NOT NULL REFERENCES publicacoes(id_pub) ON DELETE CASCADE,
+    provincia  TEXT NOT NULL,              -- código de 3 letras (18 províncias, divisão anterior a 2025)
+    PRIMARY KEY (id_pub, provincia)
+);
+CREATE TABLE IF NOT EXISTS alertas (
+    id_alerta    INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo         TEXT NOT NULL,            -- confirmado | tendencia
+    chave        TEXT NOT NULL UNIQUE,     -- evita alertas repetidos
+    criado_em    TEXT NOT NULL,
+    titulo       TEXT NOT NULL,
+    categoria    TEXT,
+    provincia    TEXT,                     -- código, NAC (nacional) ou NULL
+    id_pub       TEXT REFERENCES publicacoes(id_pub) ON DELETE SET NULL,
+    detalhe      TEXT,                     -- JSON
+    email_estado TEXT NOT NULL DEFAULT 'nao_enviado',
+    email_em     TEXT
+);
+CREATE TABLE IF NOT EXISTS alertas_vistos (
+    id_alerta   INTEGER NOT NULL REFERENCES alertas(id_alerta) ON DELETE CASCADE,
+    utilizador  TEXT NOT NULL,
+    visto_em    TEXT NOT NULL,
+    PRIMARY KEY (id_alerta, utilizador)
+);
 CREATE TABLE IF NOT EXISTS definicoes (
     chave  TEXT PRIMARY KEY,
     valor  TEXT NOT NULL
@@ -123,6 +153,8 @@ CREATE INDEX IF NOT EXISTS ix_class_prior ON classificacoes(prioridade DESC);
 CREATE INDEX IF NOT EXISTS ix_class_cat ON classificacoes(categoria);
 CREATE INDEX IF NOT EXISTS ix_pub_lote ON publicacoes(id_lote);
 CREATE INDEX IF NOT EXISTS ix_rev_analista ON revisoes(analista);
+CREATE INDEX IF NOT EXISTS ix_pubprov_prov ON pub_provincias(provincia);
+CREATE INDEX IF NOT EXISTS ix_alertas_criado ON alertas(criado_em DESC);
 """
 
 
@@ -166,6 +198,14 @@ class BaseDados:
             c.executescript(ESQUEMA.split("CREATE INDEX IF NOT EXISTS ix_rev_analista")[0])
             _migrar(c)
             c.executescript(ESQUEMA)
+            # Bases criadas antes da localização: indexa uma vez as publicações existentes.
+            versao = c.execute("SELECT valor FROM definicoes WHERE chave = 'geo_versao'").fetchone()
+            if versao is None or versao["valor"] != GEO_VERSAO:
+                c.execute("DELETE FROM pub_provincias")
+                linhas = c.execute("SELECT id_pub, texto, contexto FROM publicacoes").fetchall()
+                c.executemany("INSERT OR IGNORE INTO pub_provincias(id_pub, provincia) VALUES (?,?)",
+                              [(r["id_pub"], p) for r in linhas for p in detectar_provincias(r["texto"], r["contexto"])])
+                c.execute("INSERT OR REPLACE INTO definicoes(chave, valor) VALUES ('geo_versao', ?)", (GEO_VERSAO,))
 
     @contextmanager
     def ligacao(self) -> Iterator[sqlite3.Connection]:
@@ -216,6 +256,8 @@ class BaseDados:
                 [{**r, "id_lote": id_lote} for r in registos],
             )
             novos = c.total_changes - antes
+            c.executemany("INSERT OR IGNORE INTO pub_provincias(id_pub, provincia) VALUES (?,?)",
+                          [(r["id_pub"], p) for r in registos for p in detectar_provincias(r["texto"], r.get("contexto"))])
             c.execute("UPDATE lotes SET n_recebidos = ?, n_novos = ? WHERE id_lote = ?", (len(registos), novos, id_lote))
             return novos
 

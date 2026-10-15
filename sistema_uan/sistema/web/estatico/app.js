@@ -39,6 +39,11 @@
     }
   });
 
+  // ---------- imprimir (relatório) ----------
+  document.querySelectorAll("[data-imprimir]").forEach(function (b) {
+    b.addEventListener("click", function () { window.print(); });
+  });
+
   // ---------- confirmação de acções sensíveis ----------
   document.querySelectorAll("form[data-confirmar]").forEach(function (f) {
     f.addEventListener("submit", function (e) {

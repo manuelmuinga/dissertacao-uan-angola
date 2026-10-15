@@ -28,8 +28,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
+from .. import alertas as al
 from ..base_dados import BaseDados
 from ..classificador import Classificador, carregar_classificador
+from ..geografia import PROVINCIAS, mapa as mapa_geo
 from ..config import NOMES_APRESENTACAO, PAPEIS, ROTULOS, Config, obter_config
 from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, recolher_fonte
 from ..servico import (VIAS, classificacao_em_curso, classificar_pendentes, exportar_revisoes,
@@ -61,6 +63,10 @@ AVISOS = {
     "fonte_apagada": ("ok", "Fonte apagada. Os lotes já recolhidos mantêm-se."),
     "recolha": ("ok", "Recolha iniciada em segundo plano. As publicações novas são classificadas no fim."),
     "recolha_ocupada": ("aviso", "Já há uma recolha em curso."),
+    "alertas_vistos": ("ok", "Alertas marcados como vistos."),
+    "alertas_def": ("ok", "Definições dos alertas gravadas."),
+    "email_teste": ("ok", "E-mail de teste enviado. Confirme a caixa de entrada dos destinatários."),
+    "relatorio_enviado": ("ok", "Relatório enviado por e-mail aos destinatários definidos."),
 }
 VIAS_NOMES = {
     "api_oficial": "API oficial da plataforma",
@@ -122,6 +128,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     estado: dict = {"clf": clf, "modelo": "pronto" if clf else "a carregar", "erro_modelo": None,
                     "progresso": None, "recolha": None}
 
+    smtp_testes = None  # os testes substituem o servidor de e-mail
+
     def _carregar():
         try:
             estado["clf"] = carregar_classificador(cfg.caminho_modelo, max_length=cfg.max_length,
@@ -174,7 +182,9 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     app.mount("/estatico", StaticFiles(directory=PASTA / "estatico"), name="estatico")
     tpl = Jinja2Templates(directory=PASTA / "modelos")
     tpl.env.filters.update(hora=_hora, num=_num, pct=_pct)
-    tpl.env.globals.update(ROTULOS=ROTULOS, NOMES=NOMES_APRESENTACAO, VIAS=VIAS, VIAS_NOMES=VIAS_NOMES, PAPEIS=PAPEIS)
+    tpl.env.globals.update(ROTULOS=ROTULOS, NOMES=NOMES_APRESENTACAO, VIAS=VIAS, VIAS_NOMES=VIAS_NOMES, PAPEIS=PAPEIS,
+                           PROVINCIAS=PROVINCIAS, nomes_provincias=al.nomes_provincias)
+    tpl.env.filters["json"] = lambda x: json.loads(x or "{}")
 
     @app.middleware("http")
     async def cabecalhos(request: Request, call_next):
@@ -237,6 +247,10 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         if s:
             base["n_fila_meus"] = bd.n_fila(s["utilizador"])
             base["n_amostra_meus"] = len(bd.fila_amostra(s["utilizador"], 10**6))
+            base["n_alertas_novos"] = bd.consultar(
+                """SELECT COUNT(*) AS n FROM alertas a WHERE NOT EXISTS
+                   (SELECT 1 FROM alertas_vistos v WHERE v.id_alerta = a.id_alerta AND v.utilizador = ?)""",
+                (s["utilizador"],))[0]["n"]
         base.update(ctx or {})
         return tpl.TemplateResponse(request, nome, base, status_code=codigo)
 
@@ -390,6 +404,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                               nota.strip()[:500] or None, origem=origem, cega=origem == "amostra" or revisao_cega())
         except KeyError:
             raise HTTPException(404, "Publicação não encontrada.")
+        _depois_de_rever(id_pub)
         return ir(destino_seguro(voltar), "revisao")
 
     @app.get("/publicacao/{id_pub}", response_class=HTMLResponse)
@@ -544,6 +559,127 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             raise HTTPException(400, "Não há fontes activas.")
         return ir("/fontes", "recolha" if _recolher_fundo(ids, s["utilizador"]) else "recolha_ocupada")
 
+    # ------------------------------------------------------------------ alertas, mapa e relatório
+    def _depois_de_rever(id_pub: str) -> list[int]:
+        try:
+            return al.apos_revisao(bd, cfg, id_pub, sincrono=sincrono, fabrica_smtp=app.state.smtp_testes)
+        except Exception:  # um erro nos alertas nunca impede a gravação da decisão
+            log.exception("Falha ao gerar alertas para %s", id_pub)
+            return []
+
+    @app.get("/alertas", response_class=HTMLResponse)
+    def ver_alertas(request: Request, tipo: str = "", pagina_n: int = 1):
+        s = sessao(request)
+        pagina_n = max(1, pagina_n)
+        filtro, params = ("WHERE a.tipo = ?", (tipo,)) if tipo in ("confirmado", "tendencia") else ("", ())
+        rows = bd.consultar(
+            f"""SELECT a.*, EXISTS(SELECT 1 FROM alertas_vistos v WHERE v.id_alerta = a.id_alerta AND v.utilizador = ?)
+                       AS visto FROM alertas a {filtro} ORDER BY a.id_alerta DESC LIMIT ? OFFSET ?""",
+            (s["utilizador"], *params, 51, (pagina_n - 1) * 50))
+        defs = al.ler_definicoes(bd)
+        return pagina(request, "alertas.html", {"alertas": rows[:50], "ha_mais": len(rows) > 50, "pagina_n": pagina_n,
+                                                "tipo": tipo, "defs": defs, "email_ok": cfg.email_configurado})
+
+    @app.post("/alertas/vistos")
+    def alertas_vistos(request: Request, csrf: str = Form("")):
+        s = sessao(request)
+        verificar_csrf(s, csrf)
+        with bd.ligacao() as c:
+            c.execute("""INSERT OR IGNORE INTO alertas_vistos(id_alerta, utilizador, visto_em)
+                         SELECT id_alerta, ?, ? FROM alertas""", (s["utilizador"], datetime.now(timezone.utc).isoformat()))
+        return ir("/alertas", "alertas_vistos")
+
+    def _cor(taxa: float | None, maximo: float, suficiente: bool, mencoes: int) -> str:
+        if not mencoes:
+            return "#eceee9"
+        if not suficiente or taxa is None:
+            return "url(#insuficiente)"
+        t = 0.0 if maximo <= 0 else min(1.0, taxa / maximo)
+        a, b = (0xF6, 0xEF, 0xE6), (0xA3, 0x26, 0x1A)
+        return "#" + "".join(f"{round(x + (y - x) * (0.12 + 0.88 * t)):02x}" for x, y in zip(a, b)) if taxa > 0 else "#f6efe6"
+
+    @app.get("/mapa", response_class=HTMLResponse)
+    def ver_mapa(request: Request, de: str = "", ate: str = "", dias: str = "", modo: str = "confirmadas",
+                 categoria: str = ""):
+        sessao(request)
+        per = al.periodo(de, ate, dias)
+        cat = categoria if categoria in ROTULOS and categoria != "Normal" else None
+        d = al.dados_mapa(bd, per, modo, cat)
+        geo = mapa_geo()
+        for l in d["provincias"]:
+            g = geo["provincias"][l["codigo"]]
+            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"], cor=_cor(l["taxa"], d["max_taxa"], l["suficiente"], l["mencoes"]))
+        return pagina(request, "mapa.html", {"m": d, "geo": geo, "per": per, "modo": d["modo"], "categoria": cat or "",
+                                             "fonte_geo": geo["fonte"]})
+
+    @app.get("/relatorio", response_class=HTMLResponse)
+    def ver_relatorio(request: Request, de: str = "", ate: str = "", dias: str = ""):
+        s = sessao(request)
+        per = al.periodo(de, ate, dias)
+        rel = al.relatorio(bd, per)
+        geo = mapa_geo()
+        for l in rel["mapa"]["provincias"]:
+            g = geo["provincias"][l["codigo"]]
+            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"],
+                     cor=_cor(l["taxa"], rel["mapa"]["max_taxa"], l["suficiente"], l["mencoes"]))
+        bd.auditar(s["utilizador"], "relatorio", {"periodo": per.rotulo()})
+        return pagina(request, "relatorio.html", {"rel": rel, "per": per, "geo": geo, "m": rel["mapa"],
+                                                  "email_ok": cfg.email_configurado,
+                                                  "destinatarios": al.ler_definicoes(bd)["destinatarios"]})
+
+    @app.get("/relatorio.csv")
+    def relatorio_csv(request: Request, de: str = "", ate: str = "", dias: str = ""):
+        s = sessao(request)
+        per = al.periodo(de, ate, dias)
+        bd.auditar(s["utilizador"], "exportacao_relatorio", {"periodo": per.rotulo()})
+        corpo = "\ufeff" + al.relatorio_csv(al.relatorio(bd, per))
+        return Response(corpo, media_type="text/csv; charset=utf-8", headers={
+            "Content-Disposition": f"attachment; filename=relatorio_alertas_{per.inicio}_{per.fim}.csv"})
+
+    @app.post("/relatorio/enviar")
+    def relatorio_enviar(request: Request, csrf: str = Form(""), de: str = Form(""), ate: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        per = al.periodo(de, ate)
+        assunto, corpo = al.corpo_relatorio(al.relatorio(bd, per), cfg)
+        try:
+            al.enviar_email(cfg, al.ler_definicoes(bd)["destinatarios"], assunto, corpo, app.state.smtp_testes)
+        except Exception as e:
+            raise HTTPException(502, f"O e-mail não foi enviado: {e}")
+        bd.auditar(s["utilizador"], "relatorio_email", {"periodo": per.rotulo()})
+        return ir(f"/relatorio?de={per.inicio}&ate={per.fim}", "relatorio_enviado")
+
+    @app.post("/definicoes/alertas")
+    def definicoes_alertas(request: Request, csrf: str = Form(""), min_confirmacoes: int = Form(1),
+                           janela_dias: int = Form(7), min_casos: int = Form(5), factor: str = Form("1.5"),
+                           destinatarios: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        try:
+            emails = al.validar_destinatarios(destinatarios)
+            f = float(factor.replace(",", "."))
+            if not (1 <= min_confirmacoes <= 5 and 1 <= janela_dias <= 90 and 1 <= min_casos <= 1000 and 1.0 <= f <= 10):
+                raise ValueError("Valores fora dos limites.")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        for k, v in (("alerta_min_confirmacoes", min_confirmacoes), ("alerta_janela_dias", janela_dias),
+                     ("alerta_min_casos", min_casos), ("alerta_factor", f), ("alerta_destinatarios", ",".join(emails))):
+            bd.definir(k, str(v), s["utilizador"])
+        return ir("/definicoes", "alertas_def")
+
+    @app.post("/definicoes/email-teste")
+    def definicoes_email_teste(request: Request, csrf: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        try:
+            al.enviar_email(cfg, al.ler_definicoes(bd)["destinatarios"], "[Sistema UAN] E-mail de teste",
+                            "Se recebeu esta mensagem, os alertas por e-mail do Sistema UAN estão configurados.",
+                            app.state.smtp_testes)
+        except Exception as e:
+            raise HTTPException(502, f"O e-mail não foi enviado: {e}")
+        bd.auditar(s["utilizador"], "email_teste", None)
+        return ir("/definicoes", "email_teste")
+
     # ------------------------------------------------------------------ métricas
     @app.get("/metricas", response_class=HTMLResponse)
     def ver_metricas(request: Request):
@@ -659,7 +795,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             """SELECT COUNT(*) AS n FROM publicacoes WHERE recolhido_em < ? AND id_pub NOT IN (SELECT id_pub FROM revisoes)""",
             ((datetime.now(timezone.utc) - timedelta(days=cfg.dias_conservacao)).isoformat(),))[0]["n"]
         return pagina(request, "definicoes.html", {"cega": revisao_cega(), "dias": cfg.dias_conservacao,
-                                                   "antigas": antigas, "cfg": cfg,
+                                                   "antigas": antigas, "cfg": cfg, "defs": al.ler_definicoes(bd),
                                                    "api_activa": bool(cfg.chave_api)})
 
     @app.post("/definicoes")
@@ -740,7 +876,19 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             bd.gravar_revisao(p.id_pub, p.analista, p.categoria, p.posicao_fila, p.nota, origem="api")
         except KeyError as e:
             raise HTTPException(404, str(e))
-        return {"estado": "gravada"}
+        return {"estado": "gravada", "alertas_novos": _depois_de_rever(p.id_pub)}
+
+    @app.get("/api/alertas")
+    def api_alertas(request: Request, limite: int = 50):
+        chave(request)
+        return [{**dict(a), "detalhe": json.loads(a["detalhe"] or "{}")}
+                for a in bd.consultar("SELECT * FROM alertas ORDER BY id_alerta DESC LIMIT ?", (min(limite, 500),))]
+
+    @app.get("/api/mapa")
+    def api_mapa(request: Request, de: str = "", ate: str = "", dias: str = "", modo: str = "confirmadas"):
+        chave(request)
+        d = al.dados_mapa(bd, al.periodo(de, ate, dias), modo)
+        return {**d, "periodo": d["periodo"].rotulo(), "anterior": d["anterior"].rotulo()}
 
     @app.get("/api/metricas")
     def api_metricas(request: Request):
@@ -749,4 +897,5 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
 
     app.state.bd = bd
     app.state.estado = estado
+    app.state.smtp_testes = smtp_testes
     return app

@@ -206,7 +206,26 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .mt { margin-top: 16px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
+/* ---------- mapa, alertas e relatório ---------- */
+.mapa-grelha { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; }
+.mapa { max-width: 640px; margin: 0 auto; }
+.mapa a path { cursor: pointer; transition: opacity .15s; }
+.mapa a:hover path, .mapa a:focus path { opacity: .8; }
+.mapa .mapa-nome { font: 600 11px var(--letra); fill: var(--tinta); paint-order: stroke; stroke: rgba(255,255,255,.85); stroke-width: 3px; pointer-events: none; }
+.mapa .mapa-var { font: 700 11px var(--letra); paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 3px; pointer-events: none; }
+.mapa .sobe, .sobe { color: var(--perigo); fill: var(--perigo); }
+.mapa .desce, .desce { color: var(--ok); fill: var(--ok); }
+.mapa-legenda { align-items: center; }
+.mapa-legenda .escala { display: inline-flex; align-items: center; gap: 6px; }
+.mapa-legenda .escala i { display: inline-block; width: 110px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #f6efe6, #ead2c2, #a3261a); }
+.amostra-cor { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 6px; border: 1px solid var(--linha-forte); vertical-align: -1px; }
+.amostra-cor.tracejado { background: repeating-linear-gradient(45deg, #f3f4f1 0 3px, #c6ccc3 3px 5px); }
+.tabela tr.novo td { background: #fffaf0; }
+.accoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.accoes form { margin: 0; }
+
 @media (max-width: 960px) {
+  .mapa-grelha { grid-template-columns: 1fr; }
   .estrutura { grid-template-columns: 1fr; }
   .lateral { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; gap: 10px; }
   .menu { flex-direction: row; flex-wrap: wrap; }
@@ -223,6 +242,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
   .item-lado { border-left: 0; border-top: 1px solid var(--linha); border-radius: 0 0 var(--raio) var(--raio); }
 }
 @media print {
-  .lateral, .filtros, .decisoes, .nota, .paginacao { display: none !important; }
+  .lateral, .filtros, .decisoes, .nota, .paginacao, .nao-imprimir, .faixa { display: none !important; }
+  body { background: #fff; font-size: 12px; }
+  .principal { padding: 0; max-width: none; }
+  .cartao { box-shadow: none; break-inside: avoid; }
+  .nao-imprimir-link { color: inherit; text-decoration: none; }
   .estrutura { display: block; }
 }

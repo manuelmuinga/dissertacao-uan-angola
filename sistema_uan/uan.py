@@ -14,6 +14,9 @@ Exemplos (Windows, cmd):
     python uan.py fonte-adicionar --tipo rss --endereco https://exemplo.ao/feed --nome "Jornal X"
     python uan.py fontes
     python uan.py recolher
+    python uan.py alertas
+    python uan.py relatorio --dias 30 --csv dados\\relatorio.csv
+    python uan.py relatorio --de 2026-10-01 --ate 2026-10-31 --email
 """
 
 from __future__ import annotations
@@ -65,6 +68,11 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("fontes", help="Lista as fontes de recolha")
     p = sub.add_parser("recolher", help="Recolhe das fontes activas (ou de uma) e classifica o que for novo")
     p.add_argument("--fonte", type=int); p.add_argument("--sem-classificar", action="store_true")
+    sub.add_parser("alertas", help="Verifica tendências, envia os alertas por e-mail e lista os mais recentes")
+    p = sub.add_parser("relatorio", help="Relatório de alertas de ameaças para um período")
+    p.add_argument("--de"); p.add_argument("--ate"); p.add_argument("--dias", default="30")
+    p.add_argument("--csv", help="grava o relatório em CSV neste ficheiro")
+    p.add_argument("--email", action="store_true", help="envia o resumo aos destinatários definidos")
     a = ap.parse_args(argv)
 
     cfg = obter_config()
@@ -103,6 +111,29 @@ def main(argv: list[str] | None = None) -> None:
             print(f"[{r['id_fonte']}] {r['nome']}: {r['estado']}")
         if not a.sem_classificar and any(r.get("novos") for r in res):
             print(json.dumps(classificar_pendentes(bd, _clf(cfg), limite=10**9), ensure_ascii=False))
+        return
+    if a.cmd == "alertas":
+        from sistema import alertas as al
+        novos = al.verificar_tendencias(bd)
+        al.notificar(bd, cfg, novos, sincrono=True)
+        print(f"{len(novos)} alerta(s) de tendência novo(s).")
+        for r in bd.consultar("SELECT * FROM alertas ORDER BY id_alerta DESC LIMIT 15"):
+            print(f"{r['id_alerta']:>4} {r['criado_em'][:16]} {r['tipo']:<10} {r['titulo'][:90]}  [e-mail: {r['email_estado']}]")
+        return
+    if a.cmd == "relatorio":
+        from sistema import alertas as al
+        rel = al.relatorio(bd, al.periodo(a.de, a.ate, a.dias))
+        k = rel["kpi"]
+        print(f"{rel['periodo'].rotulo()}: {k['publicacoes']} publicações, {k['sinalizadas']} sinalizadas, "
+              f"{k['confirmadas']} ameaças confirmadas, {k['alertas']} alertas")
+        if a.csv:
+            Path(a.csv).write_text("\ufeff" + al.relatorio_csv(rel), encoding="utf-8")
+            print(f"CSV gravado em {a.csv}")
+        if a.email:
+            assunto, corpo = al.corpo_relatorio(rel, cfg)
+            al.enviar_email(cfg, al.ler_definicoes(bd)["destinatarios"], assunto, corpo)
+            print("Resumo enviado por e-mail.")
+        bd.auditar("linha_de_comandos", "relatorio", {"periodo": rel["periodo"].rotulo()})
         return
     if a.cmd == "importar":
         print(json.dumps(importar(bd, Path(a.ficheiro), a.plataforma, a.via, cfg.segredo_hash, a.descricao,

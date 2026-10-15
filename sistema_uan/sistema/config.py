@@ -78,6 +78,19 @@ class Config:
     recolha_max_paginas: int = field(default_factory=lambda: int(os.getenv("UAN_RECOLHA_MAX_PAGINAS", "40")))
     recolha_agente: str = field(default_factory=lambda: os.getenv(
         "UAN_RECOLHA_AGENTE", "SistemaUAN-Investigacao/1.0 (dissertacao de mestrado, Universidade Agostinho Neto)"))
+    # Alertas por e-mail (os destinatários definem-se na página Definições)
+    smtp_servidor: str = field(default_factory=lambda: os.getenv("UAN_SMTP_SERVIDOR", ""))
+    smtp_porta: int = field(default_factory=lambda: int(os.getenv("UAN_SMTP_PORTA", "587")))
+    smtp_utilizador: str = field(default_factory=lambda: os.getenv("UAN_SMTP_UTILIZADOR", ""))
+    smtp_senha: str = field(default_factory=lambda: os.getenv("UAN_SMTP_SENHA", ""))
+    smtp_remetente: str = field(default_factory=lambda: os.getenv("UAN_SMTP_REMETENTE", ""))
+    smtp_tls: bool = field(default_factory=lambda: _bool("UAN_SMTP_TLS", "1"))
+    # Endereço da aplicação, usado nas ligações dos e-mails
+    url_base: str = field(default_factory=lambda: os.getenv("UAN_URL_BASE", "http://127.0.0.1:8000").rstrip("/"))
+
+    @property
+    def email_configurado(self) -> bool:
+        return bool(self.smtp_servidor and (self.smtp_remetente or self.smtp_utilizador))
 
 
 def obter_config() -> Config:

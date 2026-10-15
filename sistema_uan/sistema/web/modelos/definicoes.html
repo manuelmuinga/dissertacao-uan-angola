@@ -28,6 +28,29 @@
     <form method="post" action="/definicoes/copia"><input type="hidden" name="csrf" value="{{ sessao.csrf }}"><button class="botao secundario" type="submit">Criar cópia</button></form>
   </div>
   <div class="cartao">
+    <h2>Alertas</h2>
+    <p>Os alertas só nascem de decisões dos analistas e vão para a aplicação e, se o e-mail estiver configurado, para os destinatários abaixo. Nunca são enviados automaticamente a terceiros.</p>
+    <form method="post" action="/definicoes/alertas">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <div class="grelha g2">
+        <div class="campo"><label for="min_confirmacoes">Analistas para confirmar</label><input type="number" id="min_confirmacoes" name="min_confirmacoes" min="1" max="5" value="{{ defs.min_confirmacoes }}"></div>
+        <div class="campo"><label for="janela_dias">Janela da tendência (dias)</label><input type="number" id="janela_dias" name="janela_dias" min="1" max="90" value="{{ defs.janela_dias }}"></div>
+        <div class="campo"><label for="min_casos">Mínimo de casos</label><input type="number" id="min_casos" name="min_casos" min="1" max="1000" value="{{ defs.min_casos }}">
+          <div class="ajuda">Também é o mínimo de publicações para o mapa calcular a taxa.</div></div>
+        <div class="campo"><label for="factor">Crescimento mínimo</label><input type="text" id="factor" name="factor" value="{{ defs.factor|string|replace('.', ',') }}">
+          <div class="ajuda">1,5 = mais 50% do que na janela anterior.</div></div>
+      </div>
+      <div class="campo"><label for="destinatarios">Destinatários dos e-mails</label>
+        <textarea id="destinatarios" name="destinatarios" rows="2" placeholder="nome@instituicao.ao, outro@instituicao.ao">{{ defs.destinatarios|join(', ') }}</textarea>
+        <div class="ajuda">Servidor de e-mail: {{ cfg.smtp_servidor ~ ':' ~ cfg.smtp_porta if cfg.email_configurado else 'não configurado (UAN_SMTP_SERVIDOR e UAN_SMTP_REMETENTE no uan.env)' }}.</div></div>
+      <button class="botao" type="submit">Gravar</button>
+    </form>
+    <form method="post" action="/definicoes/email-teste" class="mt">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <button class="botao secundario" type="submit" {{ 'disabled' if not (cfg.email_configurado and defs.destinatarios) }}>Enviar e-mail de teste</button>
+    </form>
+  </div>
+  <div class="cartao">
     <h2>Configuração do servidor</h2>
     <table class="tabela"><tbody>
       <tr><td>Base de dados</td><td class="mono">{{ cfg.caminho_bd }}</td></tr>
