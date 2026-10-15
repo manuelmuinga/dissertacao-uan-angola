@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt"{% if tema %} data-tema="{{ tema }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,10 +7,30 @@
 <link rel="stylesheet" href="/estatico/estilo.css">
 <link rel="icon" href="/estatico/icone.svg" type="image/svg+xml">
 </head>
-<body>
-{% macro menu_link(url, texto, contador=None) -%}
-<a href="{{ url }}" class="{{ 'activo' if (caminho == url or (url != '/' and caminho.startswith(url))) }}"{% if caminho == url or (url != '/' and caminho.startswith(url)) %} aria-current="page"{% endif %}>
-  <span>{{ texto }}</span>{% if contador %}<span class="contador">{{ contador|num }}</span>{% endif %}
+<body{% if sessao and visita_pendente and not request.query_params.get('parcial') %} data-visita-auto{% endif %}{% if demonstracao %} class="modo-demo"{% endif %}>
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-panorama" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="15" width="7.5" height="6" rx="1.5"/></symbol>
+  <symbol id="i-fila" viewBox="0 0 24 24"><path d="M3 13h5l1.5 2.5h5L16 13h5"/><path d="M5.5 5h13L21 13v5.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5V13z"/></symbol>
+  <symbol id="i-amostra" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" /></symbol>
+  <symbol id="i-alertas" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-mapa" viewBox="0 0 24 24"><path d="M3.5 6.5 9 4.5l6 2 5.5-2v13l-5.5 2-6-2-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/></symbol>
+  <symbol id="i-relatorio" viewBox="0 0 24 24"><path d="M6 3h8.5L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M8.5 13h7M8.5 16.5h7M8.5 9.5h3"/></symbol>
+  <symbol id="i-lotes" viewBox="0 0 24 24"><path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></symbol>
+  <symbol id="i-modelo" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 9.5h5v5h-5zM9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+  <symbol id="i-fontes" viewBox="0 0 24 24"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1.4"/></symbol>
+  <symbol id="i-metricas" viewBox="0 0 24 24"><path d="M3.5 20.5h17M6.5 17v-5M11 17V7M15.5 17v-8M20 17V4"/></symbol>
+  <symbol id="i-utilizadores" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.2A6.5 6.5 0 0 1 21.5 20"/></symbol>
+  <symbol id="i-auditoria" viewBox="0 0 24 24"><path d="M12 2.5 19.5 5v6c0 5-3.2 8.5-7.5 10.5C7.7 19.5 4.5 16 4.5 11V5z"/><path d="m8.8 11.8 2.2 2.2 4.4-4.4"/></symbol>
+  <symbol id="i-definicoes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+  <symbol id="i-procurar" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+  <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></symbol>
+  <symbol id="i-lua" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/></symbol>
+  <symbol id="i-visita" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+</svg>
+{% macro menu_link(url, texto, contador=None, icone=None, passo=None) -%}
+<a href="{{ url }}"{% if passo %} data-visita-passo="{{ passo }}"{% endif %} class="{{ 'activo' if (caminho == url or (url != '/' and caminho.startswith(url))) }}"{% if caminho == url or (url != '/' and caminho.startswith(url)) %} aria-current="page"{% endif %}>
+  {% if icone %}<svg class="icone" aria-hidden="true"><use href="#i-{{ icone }}"></use></svg>{% endif %}<span>{{ texto }}</span>{% if contador %}<span class="contador">{{ contador|num }}</span>{% endif %}
 </a>
 {%- endmacro %}
 <div class="estrutura">
@@ -23,36 +43,57 @@
       <i></i><i></i><i></i>
     </button>
     <nav class="menu" id="menu-principal" aria-label="Navegação principal">
-      {{ menu_link('/', 'Panorama') }}
-      {{ menu_link('/fila', 'Fila de revisão', n_fila_meus) }}
-      {{ menu_link('/amostra', 'Amostra de controlo', n_amostra_meus) }}
-      {{ menu_link('/alertas', 'Alertas', n_alertas_novos) }}
-      {{ menu_link('/mapa', 'Mapa') }}
-      {{ menu_link('/relatorio', 'Relatório') }}
-      {{ menu_link('/lotes', 'Lotes') }}
+      {{ menu_link('/', 'Panorama', icone='panorama') }}
+      {{ menu_link('/fila', 'Fila de revisão', n_fila_meus, 'fila', 1) }}
+      {{ menu_link('/amostra', 'Amostra de controlo', n_amostra_meus, 'amostra') }}
+      {{ menu_link('/alertas', 'Alertas', n_alertas_novos, 'alertas', 2) }}
+      {{ menu_link('/mapa', 'Mapa', icone='mapa', passo=3) }}
+      {{ menu_link('/relatorio', 'Relatório', icone='relatorio') }}
+      {{ menu_link('/modelo', 'Sobre o modelo', icone='modelo', passo=4) }}
+      {{ menu_link('/lotes', 'Lotes', icone='lotes') }}
       {% if sessao.papel == 'supervisor' %}
       <div class="grupo">Supervisão</div>
-      {{ menu_link('/fontes', 'Fontes e recolha') }}
-      {{ menu_link('/metricas', 'Métricas') }}
-      {{ menu_link('/utilizadores', 'Utilizadores') }}
-      {{ menu_link('/auditoria', 'Auditoria') }}
-      {{ menu_link('/definicoes', 'Definições') }}
+      {{ menu_link('/fontes', 'Fontes e recolha', icone='fontes') }}
+      {{ menu_link('/metricas', 'Métricas', icone='metricas') }}
+      {{ menu_link('/utilizadores', 'Utilizadores', icone='utilizadores') }}
+      {{ menu_link('/auditoria', 'Auditoria', icone='auditoria') }}
+      {{ menu_link('/definicoes', 'Definições', icone='definicoes') }}
       {% endif %}
     </nav>
     <div class="lateral-pe">
       <div><b>{{ sessao.nome }}</b> · {{ sessao.papel }}</div>
-      <div><a href="/conta" class="suave" style="color:#93a4b5">A minha conta</a></div>
+      <div><a href="/conta" class="suave" style="color:#93a4b5">A minha conta</a> · <button type="button" class="ligacao-lateral" data-visita-iniciar>Visita guiada</button></div>
       <form method="post" action="/sair"><input type="hidden" name="csrf" value="{{ sessao.csrf }}"><button type="submit">Sair</button></form>
       <div class="mt" style="font-size:11.5px">Modelo: {{ modelo_nome or '—' }}{% if modelo_versao %}<br><span class="mono">{{ modelo_versao }}</span>{% endif %}</div>
     </div>
   </aside>
   <main class="principal">
+    {% if demonstracao %}<div class="faixa-demo" role="note"><b>Demonstração</b> Dados fictícios, criados para apresentar o sistema. Nada aqui descreve pessoas ou acontecimentos reais. Nenhum e-mail é enviado.</div>{% endif %}
+    <div class="barra-topo nao-imprimir">
+      <button class="topo-procurar" type="button" data-paleta-abrir aria-keyshortcuts="Control+K" aria-label="Procurar páginas e acções (Ctrl+K)">
+        <svg class="icone" aria-hidden="true"><use href="#i-procurar"></use></svg><span>Procurar ou ir para…</span><kbd>Ctrl K</kbd></button>
+      <div class="topo-accoes">
+        <div class="sino-caixa">
+          <button class="topo-botao sino" type="button" data-sino aria-haspopup="true" aria-expanded="false" aria-controls="sino-lista"
+                  aria-label="Alertas{% if n_alertas_novos %}: {{ n_alertas_novos }} por ver{% endif %}">
+            <svg class="icone" aria-hidden="true"><use href="#i-alertas"></use></svg>
+            <span class="sino-n" data-sino-n {% if not n_alertas_novos %}hidden{% endif %}>{{ n_alertas_novos if n_alertas_novos and n_alertas_novos < 100 else '99+' if n_alertas_novos else '' }}</span>
+          </button>
+          <div class="sino-lista" id="sino-lista" role="region" aria-label="Últimos alertas" hidden>
+            <div class="sino-topo"><b>Últimos alertas</b><a href="/alertas">Ver todos</a></div>
+            <ul data-sino-itens><li class="sino-vazio">A carregar…</li></ul>
+          </div>
+        </div>
+        <button class="topo-botao" type="button" data-tema-alternar aria-label="Tema: {{ {'claro': 'claro', 'escuro': 'escuro'}.get(tema, 'automático') }}" title="Tema: {{ {'claro': 'claro', 'escuro': 'escuro'}.get(tema, 'automático (segue o sistema)') }}">
+          <svg class="icone" aria-hidden="true"><use href="#i-{{ {'claro': 'sol', 'escuro': 'lua'}.get(tema, 'auto') }}"></use></svg></button>
+      </div>
+    </div>
     {% if cega_activa %}<div class="selo-cega" role="note" title="A sugestão do modelo está escondida para não influenciar a decisão"><span aria-hidden="true">◉</span> Revisão cega activa</div>{% endif %}
     {% if modelo_estado == 'a carregar' %}
     <div class="faixa info" id="modelo-a-carregar">O modelo está a carregar. A navegação funciona; a classificação começa quando terminar (cerca de 20 segundos).</div>
     {% elif modelo_estado == 'erro' %}
     <div class="faixa perigo">Não foi possível carregar o modelo: {{ erro_modelo }}. Confirme UAN_MODELO no ficheiro uan.env.</div>
-    {% elif modelo_nome == 'DEMONSTRACAO' %}
+    {% elif modelo_nome == 'DEMONSTRACAO' and not demonstracao %}
     <div class="faixa perigo"><b>Classificador de demonstração.</b> As sugestões vêm de palavras-chave, não do BERTimbau. Defina UAN_MODELO no ficheiro uan.env.</div>
     {% endif %}
     {% if progresso %}
@@ -88,11 +129,29 @@
     <dt><kbd>N</kbd></dt><dd>Escrever uma nota no item</dd>
     <dt><kbd>U</kbd></dt><dd>Desfazer a última decisão (5 segundos)</dd>
     <dt><kbd>D</kbd></dt><dd>Abrir o detalhe do item no painel lateral</dd>
-    <dt><kbd>G</kbd> depois <kbd>F</kbd> <kbd>A</kbd> <kbd>M</kbd> <kbd>R</kbd> <kbd>P</kbd></dt><dd>Ir para Fila, Alertas, Mapa, Relatório ou Panorama</dd>
+    <dt><kbd>G</kbd> depois <kbd>F</kbd> <kbd>A</kbd> <kbd>M</kbd> <kbd>R</kbd> <kbd>P</kbd> <kbd>O</kbd></dt><dd>Ir para Fila, Alertas, Mapa, Relatório, Panorama ou Sobre o modelo</dd>
+    <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Procurar páginas e acções</dd>
     <dt><kbd>?</kbd></dt><dd>Mostrar ou esconder esta ajuda</dd>
     <dt><kbd>Esc</kbd></dt><dd>Fechar painéis e sair dos campos</dd>
   </dl>
   <button class="botao secundario pequeno" type="button" data-fechar-atalhos>Fechar</button>
+</div>
+<div class="painel-fundo paleta-fundo" id="paleta-fundo" hidden></div>
+<div class="paleta" id="paleta" role="dialog" aria-modal="true" aria-label="Procurar páginas e acções" hidden>
+  <div class="paleta-campo"><svg class="icone" aria-hidden="true"><use href="#i-procurar"></use></svg>
+    <input type="text" id="paleta-texto" placeholder="Escreva para procurar: mapa, relatório 7 dias, tema escuro…" autocomplete="off"
+           role="combobox" aria-expanded="true" aria-controls="paleta-lista" aria-autocomplete="list"><kbd>Esc</kbd></div>
+  <ul class="paleta-lista" id="paleta-lista" role="listbox"></ul>
+  <div class="paleta-pe"><span><kbd>↑</kbd><kbd>↓</kbd> escolher</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></div>
+</div>
+<div class="visita-foco" id="visita-foco" hidden></div>
+<div class="visita-cartao" id="visita-cartao" role="dialog" aria-modal="false" aria-labelledby="visita-titulo" hidden>
+  <div class="visita-passo" data-visita-contagem></div>
+  <h2 id="visita-titulo" data-visita-titulo></h2>
+  <p data-visita-texto></p>
+  <div class="visita-botoes"><button class="botao secundario pequeno" type="button" data-visita-saltar>Saltar</button>
+    <span><button class="botao secundario pequeno" type="button" data-visita-anterior>Anterior</button>
+    <button class="botao pequeno" type="button" data-visita-seguinte>Seguinte</button></span></div>
 </div>
 <script src="/estatico/app.js"></script>
 </body>

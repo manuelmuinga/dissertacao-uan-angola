@@ -50,6 +50,6 @@
     <td class="num">{{ l.classificadas|num }}</td><td class="num">{{ l.sinalizadas|num }}</td><td class="num">{{ l.revistas|num }}</td>
     <td>{{ l.importado_em|hora }}<br><span class="suave">{{ l.importado_por or '' }}</span></td></tr>{% endfor %}
   </tbody></table></div>
-  {% else %}<div class="vazio"><b>Ainda não há lotes</b>{% if sessao.papel == 'supervisor' %}Importe o primeiro ficheiro acima.{% else %}O supervisor importa os lotes.{% endif %}</div>{% endif %}
+  {% else %}<div class="vazio v-lotes"><b>Ainda não há lotes</b>{% if sessao.papel == 'supervisor' %}Importe o primeiro ficheiro acima.{% else %}O supervisor importa os lotes.{% endif %}</div>{% endif %}
 </div>
 {% endblock %}

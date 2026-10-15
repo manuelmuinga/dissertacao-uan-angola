@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_comum.html" import cat with context %}
+{% block titulo %}Sobre o modelo{% endblock %}
+{% block conteudo %}
+{% set t = ficha.teste %}{% set ang = ficha.angola %}
+<div class="cabecalho">
+  <div><h1>Sobre o modelo</h1>
+  <p>O que o modelo aprendeu, como foi avaliado e onde falha. Serve para ler as sugestões da fila com o grau de confiança certo.</p></div>
+</div>
+
+{% if a_usar_demo %}
+<div class="faixa aviso">Este servidor está a usar o <b>classificador de demonstração</b> (palavras-chave). A ficha abaixo descreve o modelo BERTimbau de referência, que se activa com UAN_MODELO no ficheiro uan.env.</div>
+{% endif %}
+
+{% if ficha %}
+<div class="grelha g4">
+  <div class="cartao kpi"><div class="valor">{{ t.f1_macro|pct(1) }}</div><div class="rotulo">F1-macro no teste (IC 95% {{ t.f1_macro_ic95[0]|pct(1) }}–{{ t.f1_macro_ic95[1]|pct(1) }})</div></div>
+  <div class="cartao kpi"><div class="valor">{{ t.kappa|num(2) }}</div><div class="rotulo">Kappa face aos rótulos de referência</div></div>
+  <div class="cartao kpi alerta-kpi"><div class="valor">{{ ang.f1_macro|pct(1) }}</div><div class="rotulo">F1-macro em conteúdo angolano (n = {{ ang.n|num }})</div></div>
+  <div class="cartao kpi"><div class="valor">{{ ((ang.publico.f1_macro - ang.f1_macro) * 100)|num(0) }} p.p.</div><div class="rotulo">Queda face ao corpus público</div></div>
+</div>
+
+<div class="grelha g2 seccao">
+  <div class="cartao">
+    <h2>Identificação</h2>
+    <dl class="ficha">
+      <dt>Modelo</dt><dd>{{ ficha.nome }}</dd>
+      <dt>Identificador</dt><dd class="mono">{{ ficha.identificador }}</dd>
+      <dt>Versão</dt><dd>{{ ficha.versao }}</dd>
+      <dt>Treinado em</dt><dd>{{ ficha.treinado_em }}</dd>
+      <dt>Modelo de base</dt><dd class="mono">{{ ficha.base }}</dd>
+      <dt>Corpus</dt><dd>{{ ficha.corpus }}</dd>
+      <dt>Configuração</dt><dd>{{ ficha.configuracao }}</dd>
+      <dt>Em uso agora</dt><dd>{{ modelo_nome or '—' }}{% if modelo_versao %} · <span class="mono">{{ modelo_versao }}</span>{% endif %}</dd>
+    </dl>
+  </div>
+  <div class="cartao">
+    <h2>Limitações conhecidas</h2>
+    <ul class="lista-limitacoes">
+      {% for l in ficha.limitacoes %}<li>{{ l }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="cartao seccao">
+  <h2>Desempenho por categoria</h2>
+  <p class="suave">{{ t.nota }}</p>
+  <div class="tabela-envolvente"><table class="tabela" data-ordenar>
+    <thead><tr><th>Categoria</th><th class="num">Precisão</th><th class="num">Sensibilidade</th><th class="num">F1 no teste</th><th class="num">Exemplos</th><th class="num">F1 em conteúdo angolano</th><th data-sem-ordem>Comparação</th></tr></thead>
+    <tbody>
+    {% for c in ROTULOS %}{% set x = t.por_categoria[c] %}{% set fa = ang.por_categoria[c] %}
+      <tr><td>{{ cat(c) }}</td><td class="num">{{ x.precisao|pct(1) }}</td><td class="num">{{ x.sensibilidade|pct(1) }}</td>
+        <td class="num">{{ x.f1|pct(1) }}</td><td class="num">{{ x.n|num }}</td>
+        <td class="num {{ 'sobe' if fa < 0.5 }}">{{ fa|pct(1) }}</td>
+        <td><div class="comparar" role="img" aria-label="F1 no teste {{ x.f1|pct(0) }}, em conteúdo angolano {{ fa|pct(0) }}">
+          <span class="comparar-barra teste" style="width: {{ (x.f1 * 100)|round(1) }}%"></span>
+          <span class="comparar-barra angola" style="width: {{ (fa * 100)|round(1) }}%"></span></div></td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  <div class="legenda"><span><i class="amostra-cor" style="background:var(--marca)"></i>teste do corpus híbrido</span><span><i class="amostra-cor" style="background:var(--perigo)"></i>conteúdo angolano (piloto)</span></div>
+  <p class="ajuda">{{ ang.nota }} No corpus público: F1-macro {{ ang.publico.f1_macro|pct(1) }}, κ {{ ang.publico.kappa|num(2) }}; no piloto angolano: κ {{ ang.kappa|num(2) }}.</p>
+</div>
+{% else %}
+<div class="cartao vazio v-erro"><b>Ficha do modelo em falta</b>Não foi encontrado o ficheiro ficha_modelo.json.</div>
+{% endif %}
+
+<div class="cartao seccao">
+  <h2>Nesta instalação</h2>
+  {% if m.n_revistas %}
+  <p class="suave">Calculado a partir das decisões dos analistas nesta base de dados{{ ' (dados fictícios da demonstração)' if demonstracao }}. Mede o acordo com o modelo nos itens revistos, que não são uma amostra aleatória: a fila mostra primeiro o que o modelo considera ameaça.</p>
+  <div class="grelha g3">
+    <div class="cartao kpi plano"><div class="valor">{{ m.n_revistas|num }}</div><div class="rotulo">Decisões dos analistas na fila</div></div>
+    <div class="cartao kpi plano"><div class="valor">{{ m.concordancia|pct(1) }}</div><div class="rotulo">Concordância analista–modelo</div></div>
+    <div class="cartao kpi plano"><div class="valor">{{ m.kappa_analista_sistema|num(2) if m.kappa_analista_sistema is not none else '—' }}</div><div class="rotulo">Kappa analista–modelo</div></div>
+  </div>
+  <table class="tabela mt"><thead><tr><th>Categoria sugerida</th><th class="num">Sugeridas e revistas</th><th class="num">Confirmadas</th><th class="num">Precisão observada</th></tr></thead><tbody>
+  {% for c, v in m.por_categoria.items() %}<tr><td>{{ cat(c) }}</td><td class="num">{{ v.previstas|num }}</td><td class="num">{{ v.confirmadas|num }}</td>
+    <td class="num">{{ (v.confirmadas / v.previstas)|pct(1) if v.previstas else '—' }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}
+  <div class="vazio v-dados"><b>Ainda não há decisões de analistas</b>Quando houver, aparece aqui o acordo real entre os analistas e o modelo.</div>
+  {% endif %}
+</div>
+<p class="ajuda">As classificações ordenam a revisão humana e não fundamentam, por si, qualquer acção sobre pessoas. Os resultados completos estão no Capítulo 4 da dissertação.</p>
+{% endblock %}

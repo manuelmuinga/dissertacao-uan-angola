@@ -1,0 +1,39 @@
+{
+  "nome": "BERTimbau afinado para 4 categorias",
+  "identificador": "bertimbau_uan_v13_s42",
+  "base": "neuralmind/bert-base-portuguese-cased",
+  "versao": "v13-s42 (novo treino)",
+  "treinado_em": "2026-10-12",
+  "corpus": "Corpus híbrido v13: 26 859 registos (ToLD-BR 12 709, Fake.br 7 199, HateBR 4 378, piloto angolano 2 573)",
+  "configuracao": "max_length 256, lote 16, taxa de aprendizagem 2e-5, 3 épocas, entropia cruzada ponderada, semente 42",
+  "teste": {
+    "n": 3987,
+    "f1_macro": 0.808,
+    "f1_macro_ic95": [0.773, 0.839],
+    "kappa": 0.824,
+    "exactidao": 0.921,
+    "por_categoria": {
+      "Normal": {"precisao": 0.941, "sensibilidade": 0.957, "f1": 0.949, "n": 2843},
+      "Desinformacao": {"precisao": 0.955, "sensibilidade": 0.943, "f1": 0.949, "n": 580},
+      "Odio": {"precisao": 0.800, "sensibilidade": 0.735, "f1": 0.766, "n": 517},
+      "Mobilizacao": {"precisao": 0.562, "sensibilidade": 0.574, "f1": 0.568, "n": 47}
+    },
+    "nota": "Conjunto de teste do corpus híbrido: 91% dos itens vêm de corpora públicos brasileiros. Equivalente ao modelo de referência da Secção 4.2 (McNemar p = 0,41; concordância 97,4%)."
+  },
+  "angola": {
+    "n": 355,
+    "f1_macro": 0.533,
+    "f1_macro_ic95": [0.470, 0.592],
+    "kappa": 0.436,
+    "por_categoria": {"Normal": 0.825, "Desinformacao": 0.235, "Odio": 0.518, "Mobilizacao": 0.554},
+    "publico": {"n": 3632, "f1_macro": 0.919, "kappa": 0.879},
+    "nota": "Subconjunto de teste do piloto angolano (Secção 4.6, modelo de referência). É a estimativa realista para conteúdo angolano."
+  },
+  "limitacoes": [
+    "Em conteúdo angolano o desempenho cai cerca de 39 pontos percentuais face ao corpus público (F1-macro 0,53 contra 0,92).",
+    "A Desinformação é quase sempre falhada em comentários angolanos (F1 0,24): no treino vinha de notícias completas do Fake.br e o modelo aprendeu o estilo, não o conteúdo.",
+    "A Mobilização Hostil só existe no piloto angolano e tem poucos exemplos (47 no teste): quase metade dos casos que o modelo sinaliza não o são.",
+    "Classifica só texto em português; não lê imagens, vídeo, áudio nem línguas nacionais.",
+    "A classificação ordena a revisão humana. Não fundamenta, por si, qualquer acção sobre pessoas."
+  ]
+}

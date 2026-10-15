@@ -22,6 +22,7 @@ Exemplos (Windows, cmd):
 from __future__ import annotations
 
 import argparse
+import os
 import getpass
 import json
 import logging
@@ -58,6 +59,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--porta", type=int, default=8000)
     p.add_argument("--anfitriao", default="127.0.0.1",
                    help="127.0.0.1 = só este computador; 0.0.0.0 = toda a rede local (use com cuidado)")
+    p.add_argument("--demonstracao", action="store_true",
+                   help="arranca com uma base de dados SEPARADA e dados fictícios (para apresentações)")
+    p.add_argument("--repor", action="store_true", help="com --demonstracao: apaga e recria os dados fictícios")
     p = sub.add_parser("criar-utilizador", help="Cria uma conta (pede a palavra-passe)")
     p.add_argument("utilizador"); p.add_argument("--nome", required=True); p.add_argument("--papel", choices=PAPEIS, default="analista")
     sub.add_parser("copia", help="Cópia de segurança da base de dados para dados\\copias")
@@ -78,6 +82,17 @@ def main(argv: list[str] | None = None) -> None:
     cfg = obter_config()
     if a.cmd == "servir":
         import uvicorn
+        if a.demonstracao:
+            from sistema.demonstracao import CONTAS, SENHA, caminho_bd
+            bd_demo = caminho_bd(Path(cfg.caminho_bd).parent)
+            if a.repor:
+                for sufixo in ("", "-wal", "-shm"):
+                    Path(str(bd_demo) + sufixo).unlink(missing_ok=True)
+            os.environ.update(UAN_DEMONSTRACAO="1", UAN_BD=str(bd_demo))
+            os.environ.pop("UAN_MODELO", None)
+            os.environ.setdefault("UAN_SEGREDO_HASH", "demonstracao")
+            print(f"MODO DE DEMONSTRAÇÃO: dados fictícios em {bd_demo}. A base de dados real não é usada.")
+            print(f"Contas: {', '.join(u for u, _, _ in CONTAS)} (palavra-passe: {SENHA})")
         print(f"Sistema UAN em http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}  (Ctrl+C para parar)")
         uvicorn.run("sistema.web.app:criar_app", factory=True, host=a.anfitriao, port=a.porta, log_level="warning")
         return

@@ -27,29 +27,32 @@
 </form>
 
 <div class="grelha g4">
-  <div class="cartao kpi"><div class="valor">{{ k.publicacoes|num }}</div><div class="rotulo">Publicações no período</div></div>
-  <div class="cartao kpi"><div class="valor">{{ k.sinalizadas|num }}</div><div class="rotulo">Sinalizadas pelo modelo</div></div>
-  <div class="cartao kpi"><div class="valor">{{ k.confirmadas|num }}</div><div class="rotulo">Ameaças confirmadas (antes: {{ k.confirmadas_antes|num }})</div></div>
+  <div class="cartao kpi"><div class="valor">{{ k.publicacoes|num }}</div><div class="rotulo">Publicações no período</div>{{ linha_tendencia(serie.mencoes['NAC'], 140, 30, 'Publicações') }}</div>
+  <div class="cartao kpi"><div class="valor">{{ k.sinalizadas|num }}</div><div class="rotulo">Sinalizadas pelo modelo</div>{{ linha_tendencia(serie_sinal.valores['NAC'], 140, 30, 'Sinalizadas') }}</div>
+  <div class="cartao kpi"><div class="valor">{{ k.confirmadas|num }}</div><div class="rotulo">Ameaças confirmadas (antes: {{ k.confirmadas_antes|num }})</div>{{ linha_tendencia(serie.valores['NAC'], 140, 30, 'Confirmadas') }}</div>
   <div class="cartao kpi"><div class="valor">{{ k.alertas|num }}</div><div class="rotulo">Alertas gerados</div></div>
 </div>
 
 <div class="grelha mapa-grelha seccao">
   <div class="cartao">
-    <h2>Concentração por província</h2>
+    <div class="cabecalho-cartao"><h2>Concentração por província</h2>
+      <span class="nao-imprimir"><a class="botao secundario pequeno" href="/mapa.svg?de={{ per.inicio }}&ate={{ per.fim }}" download>SVG</a>
+      <button class="botao secundario pequeno" type="button" data-png="/mapa.svg?de={{ per.inicio }}&ate={{ per.fim }}" data-nome="mapa_{{ per.inicio }}_{{ per.fim }}.png">PNG</button></span></div>
     {{ mapa_svg(m, geo) }}
     <p class="ajuda">Lugar mencionado, não localização do autor. Comparação com {{ m.anterior.rotulo() }}.</p>
   </div>
   <div class="cartao">
     <h2>Por categoria</h2>
-    <table class="tabela"><thead><tr><th>Categoria</th><th class="num">Sinalizadas</th><th class="num">Confirmadas</th></tr></thead><tbody>
+    <table class="tabela" data-ordenar><thead><tr><th>Categoria</th><th class="num">Sinalizadas</th><th class="num">Confirmadas</th></tr></thead><tbody>
     {% for c in rel.por_categoria %}<tr><td>{{ cat(c.categoria) }}</td><td class="num">{{ c.sinalizadas|num }}</td><td class="num">{{ c.confirmadas|num }}</td></tr>{% endfor %}
     </tbody></table>
     <h2 class="mt">Províncias com mais ameaças</h2>
-    <table class="tabela"><thead><tr><th>Província</th><th class="num">Confirmadas</th><th class="num">Taxa</th><th class="num">Variação</th></tr></thead><tbody>
+    <table class="tabela" data-ordenar><thead><tr><th>Província</th><th class="num">Confirmadas</th><th class="num">Taxa</th><th class="num">Variação</th><th data-sem-ordem>Evolução</th></tr></thead><tbody>
     {% for l in (m.provincias|selectattr('valor')|sort(attribute='valor', reverse=True)|list)[:8] %}
-      <tr><td>{{ l.nome }}</td><td class="num">{{ l.valor|num }}</td><td class="num">{{ l.taxa|pct(1) if l.taxa is not none else '—' }}</td>
-      <td class="num {{ 'sobe' if l.variacao > 0 else ('desce' if l.variacao < 0 else '') }}">{{ ('+' if l.variacao > 0 else '') ~ l.variacao }}</td></tr>
-    {% else %}<tr><td colspan="4" class="suave">Nenhuma ameaça confirmada com província mencionada.</td></tr>{% endfor %}
+      <tr data-prov="{{ l.codigo }}"><td>{{ l.nome }}</td><td class="num">{{ l.valor|num }}</td><td class="num" data-v="{{ l.taxa if l.taxa is not none else -1 }}">{{ l.taxa|pct(1) if l.taxa is not none else '—' }}</td>
+      <td class="num {{ 'sobe' if l.variacao > 0 else ('desce' if l.variacao < 0 else '') }}" data-v="{{ l.variacao }}">{{ ('+' if l.variacao > 0 else '') ~ l.variacao }}</td>
+      <td>{{ linha_tendencia(serie.valores[l.codigo], 80, 22, l.nome) }}</td></tr>
+    {% else %}<tr><td colspan="5" class="suave">Nenhuma ameaça confirmada com província mencionada.</td></tr>{% endfor %}
     </tbody></table>
     <p class="ajuda">Sem localização: {{ m.sem_local.valor|num }} ameaças confirmadas.</p>
   </div>
@@ -58,22 +61,22 @@
 <div class="cartao seccao">
   <h2>Alertas no período</h2>
   {% if rel.alertas %}
-  <table class="tabela"><thead><tr><th>Quando</th><th>Alerta</th><th>E-mail</th></tr></thead><tbody>
-  {% for a in rel.alertas %}<tr><td style="white-space:nowrap">{{ a.criado_em|hora }}</td><td>{{ a.titulo }}</td><td class="suave">{{ {'enviado': 'enviado', 'nao_configurado': 'não configurado', 'nao_enviado': 'pendente'}.get(a.email_estado, a.email_estado) }}</td></tr>{% endfor %}
-  </tbody></table>
-  {% else %}<p class="suave">Nenhum alerta neste período.</p>{% endif %}
+  <div class="tabela-envolvente fixa"><table class="tabela" data-ordenar><thead><tr><th>Quando</th><th>Alerta</th><th>E-mail</th></tr></thead><tbody>
+  {% for a in rel.alertas %}<tr><td style="white-space:nowrap" data-v="{{ a.criado_em }}">{{ a.criado_em|hora }}</td><td>{{ a.titulo }}</td><td class="suave">{{ {'enviado': 'enviado', 'nao_configurado': 'não configurado', 'nao_enviado': 'pendente'}.get(a.email_estado, a.email_estado) }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="vazio v-alertas pequeno"><b>Nenhum alerta neste período</b>Os alertas nascem das decisões dos analistas.</div>{% endif %}
 </div>
 
 <div class="cartao seccao">
   <h2>Ameaças confirmadas</h2>
   <p class="suave">Texto já mascarado. Uso interno: não divulgar fora da equipa.</p>
   {% if rel.ameacas %}
-  <table class="tabela"><thead><tr><th>Data</th><th>Categoria</th><th>Província</th><th>Excerto</th></tr></thead><tbody>
+  <div class="tabela-envolvente fixa"><table class="tabela" data-ordenar><thead><tr><th>Data</th><th>Categoria</th><th>Província</th><th>Excerto</th></tr></thead><tbody>
   {% for t in rel.ameacas[:200] %}<tr><td style="white-space:nowrap">{{ t.dia }}</td><td>{{ cat(t.categoria) }}</td><td>{{ nomes_provincias(t.provincias) }}</td>
     <td><a href="/publicacao/{{ t.id_pub }}" class="nao-imprimir-link">{{ t.excerto }}{{ '…' if t.excerto|length >= 240 }}</a></td></tr>{% endfor %}
-  </tbody></table>
+  </tbody></table></div>
   {% if rel.ameacas|length > 200 %}<p class="ajuda">Mostradas 200 de {{ rel.ameacas|length }}; o CSV tem os totais.</p>{% endif %}
-  {% else %}<p class="suave">Nenhuma ameaça confirmada neste período.</p>{% endif %}
+  {% else %}<div class="vazio v-fila pequeno"><b>Nenhuma ameaça confirmada neste período</b>Escolha outro período ou reveja a fila.</div>{% endif %}
 </div>
 <p class="ajuda">As classificações ordenam a revisão humana e não fundamentam, por si, qualquer acção sobre pessoas. Uma convocatória pacífica é exercício de direitos (arts. 40.º e 47.º da Constituição).</p>
 {% endblock %}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+{%- set rotulo = 'ameaças confirmadas' if m.modo == 'confirmadas' else 'publicações sinalizadas pelo modelo' %}
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1720" viewBox="0 0 640 860" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <title>Mapa de Angola por província · {{ per.rotulo() }}</title>
+  <style>
+    .t1 { font-size: 19px; font-weight: 700; fill: #102136; }
+    .t2 { font-size: 12.5px; fill: #4d5a66; }
+    .nome { font-size: 11px; font-weight: 600; fill: #1b2733; paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 3px; stroke-linejoin: round; }
+    .var { font-size: 11px; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 3.5px; stroke-linejoin: round; }
+    .sobe { fill: #5c0f08; } .desce { fill: #14532d; }
+    .leg { font-size: 11.5px; fill: #1b2733; }
+    .rod { font-size: 10px; fill: #6b7781; }
+  </style>
+  <defs>
+    <pattern id="insuficiente" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" fill="#f3f4f1"/><line x1="0" y1="0" x2="0" y2="7" stroke="#c6ccc3" stroke-width="2"/>
+    </pattern>
+    <linearGradient id="escala" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#f6efe6"/><stop offset=".5" stop-color="#ead2c2"/><stop offset="1" stop-color="#a3261a"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="860" fill="#ffffff"/>
+  <rect width="640" height="5" fill="#e8b931"/>
+  <text x="20" y="34" class="t1">Ameaças por província{{ ' · ' ~ categoria if categoria }}</text>
+  <text x="20" y="54" class="t2">{{ per.rotulo() }} · {{ 'confirmadas pelos analistas' if m.modo == 'confirmadas' else 'sinalizadas pelo modelo (sem revisão humana)' }} · comparação com {{ m.anterior.rotulo() }}</text>
+  <g transform="translate(20 70)">
+  {%- for l in m.provincias %}
+    <path d="{{ l.d_svg }}" fill="{{ l.cor }}" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"><title>{{ l.nome }}: {{ l.valor }} {{ rotulo }} em {{ l.mencoes }} publicações</title></path>
+  {%- endfor %}
+  {%- for l in m.provincias %}{% if l.mencoes %}
+    <text x="{{ l.cx }}" y="{{ l.cy }}" text-anchor="middle" class="nome">{{ l.codigo }}</text>
+    {%- if l.variacao %}
+    <text x="{{ l.cx }}" y="{{ l.cy + 15 }}" text-anchor="middle" class="var {{ 'sobe' if l.variacao > 0 else 'desce' }}">{{ '▲ +' if l.variacao > 0 else '▼ −' }}{{ l.variacao|abs }}</text>
+    {%- endif %}
+  {%- endif %}{% endfor %}
+  </g>
+  <g transform="translate(20 752)" class="leg">
+    <text x="0" y="10" class="leg">Taxa de {{ rotulo }} sobre as publicações que mencionam a província</text>
+    <text x="0" y="31" class="leg">0%</text>
+    <rect x="24" y="22" width="150" height="11" rx="3" fill="url(#escala)"/>
+    <text x="180" y="31" class="leg">{{ '%.1f'|format(m.max_taxa * 100)|replace('.', ',') }}%</text>
+    <rect x="250" y="22" width="14" height="11" rx="2" fill="#eceee9"/><text x="270" y="31" class="leg">sem publicações</text>
+    <rect x="380" y="22" width="14" height="11" rx="2" fill="url(#insuficiente)" stroke="#c6ccc3" stroke-width=".6"/><text x="400" y="31" class="leg">menos de {{ m.min_casos }} publicações</text>
+    <text x="0" y="52" class="leg"><tspan class="sobe" font-weight="700">▲</tspan>/<tspan class="desce" font-weight="700">▼</tspan> variação do número de {{ rotulo }} face ao período anterior · total no país: {{ m.nacional.valor }} (antes: {{ m.nacional.valor_antes }})</text>
+  </g>
+  <text x="20" y="826" class="rod">Província = lugar mencionado no texto ou no título, não a localização de quem escreveu. Sem localização: {{ m.sem_local.valor }}.</text>
+  <text x="20" y="842" class="rod">Limites: geoBoundaries ADM1 2021 (domínio público), 18 províncias anteriores a 2025 · Sistema UAN · gerado em {{ gerado }} · uso interno</text>
+</svg>

@@ -87,9 +87,13 @@ class Config:
     smtp_tls: bool = field(default_factory=lambda: _bool("UAN_SMTP_TLS", "1"))
     # Endereço da aplicação, usado nas ligações dos e-mails
     url_base: str = field(default_factory=lambda: os.getenv("UAN_URL_BASE", "http://127.0.0.1:8000").rstrip("/"))
+    # Modo de demonstração: base de dados separada com dados fictícios (python uan.py servir --demonstracao)
+    demonstracao: bool = field(default_factory=lambda: _bool("UAN_DEMONSTRACAO"))
 
     @property
     def email_configurado(self) -> bool:
+        if self.demonstracao:  # na demonstração nenhum e-mail sai do sistema
+            return False
         return bool(self.smtp_servidor and (self.smtp_remetente or self.smtp_utilizador))
 
 

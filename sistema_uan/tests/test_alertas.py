@@ -291,7 +291,7 @@ def test_fluxo_web_alerta_mapa_relatorio(app, tmp_path):
 
     pag = ana.get("/alertas")
     assert pag.status_code == 200 and "Ameaça confirmada" in pag.text and "Huambo" in pag.text
-    assert re.search(r'href="/alertas"[^>]*>\s*<span>Alertas</span><span class="contador">', pag.text)
+    assert re.search(r'href="/alertas"[^>]*>\s*(<svg.*?</svg>)?<span>Alertas</span><span class="contador">', pag.text, re.S)
     ana.post("/alertas/vistos", data={"csrf": csrf(pag)})
     assert 'class="contador"' not in re.search(r'href="/alertas".*?</a>', ana.get("/alertas").text, re.S).group(0)
 

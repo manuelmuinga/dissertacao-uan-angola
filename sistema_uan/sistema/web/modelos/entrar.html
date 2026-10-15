@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt"{% if tema %} data-tema="{{ tema }}"{% endif %}>
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Entrar{% endblock %} · Sistema UAN</title>
@@ -10,6 +10,7 @@
 <div class="ecra-entrada">
   <div class="caixa-entrada">
     <div class="marca"><span class="marca-sinal">UAN</span><span><b>Triagem de ameaças</b><span>Sistema de apoio ao analista</span></span></div>
+    {% if demonstracao %}<div class="faixa-demo"><b>Demonstração</b> Dados fictícios. Entre com <span class="mono">{{ contas_demo|join('</span>, <span class="mono">'|safe) }}</span>; palavra-passe <span class="mono">{{ senha_demo }}</span>.</div>{% endif %}
     {% block corpo %}
     {% if aviso %}<div class="faixa {{ aviso[0] }}">{{ aviso[1] }}</div>{% endif %}
     {% if erro %}<div class="faixa perigo" role="alert">{{ erro }}</div>{% endif %}

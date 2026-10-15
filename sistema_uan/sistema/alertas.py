@@ -382,6 +382,63 @@ def dados_mapa(bd: BaseDados, per: Periodo, modo: str = "confirmadas", categoria
             "sem_local": {"mencoes": a["mencoes"][SEM_LOCAL], "valor": a["valores"][SEM_LOCAL]}}
 
 
+def baldes(per: Periodo) -> list[Periodo]:
+    """Divide o período em semanas a contar do fim (dias, se o período tiver 14 dias ou menos).
+
+    No máximo 26 baldes; os períodos mais longos usam baldes maiores, sempre do mesmo tamanho,
+    excepto o primeiro, que pode ficar mais curto.
+    """
+    passo = 1 if per.dias <= 14 else 7
+    while per.dias / passo > 26:
+        passo += 7
+    out, fim = [], per.fim
+    while fim >= per.inicio:
+        ini = max(per.inicio, fim - timedelta(days=passo - 1))
+        out.append(Periodo(ini, fim))
+        fim = ini - timedelta(days=1)
+    return out[::-1]
+
+
+def serie(bd: BaseDados, per: Periodo, modo: str = "confirmadas", categoria: str | None = None) -> dict:
+    """Evolução no período, balde a balde: menções e ameaças por província e no país.
+
+    Serve as linhas de tendência (sparklines) e a reprodução do mapa no tempo.
+    """
+    defs = ler_definicoes(bd)
+    modo = modo if modo in ("confirmadas", "sinalizadas") else "confirmadas"
+    bs = baldes(per)
+    linhas = bd.consultar(
+        f"""SELECT p.id_pub, {DATA_PUB} AS dia, k.categoria AS cat_modelo FROM publicacoes p
+            LEFT JOIN classificacoes k ON k.id_pub = p.id_pub
+            WHERE {DATA_PUB} BETWEEN ? AND ?""", (per.inicio.isoformat(), per.fim.isoformat()))
+    ids = [l["id_pub"] for l in linhas]
+    provs = _provincias_de(bd, ids)
+    if modo == "sinalizadas":
+        ameaca = {l["id_pub"]: l["cat_modelo"] for l in linhas if l["cat_modelo"] and l["cat_modelo"] != "Normal"}
+    else:
+        ameaca = _confirmadas(bd, defs["min_confirmacoes"], ids)
+    if categoria:
+        ameaca = {k: v for k, v in ameaca.items() if v == categoria}
+    inicios = [b.inicio.isoformat() for b in bs]
+    zonas = list(PROVINCIAS) + [NACIONAL]
+    mencoes = {z: [0] * len(bs) for z in zonas}
+    valores = {z: [0] * len(bs) for z in zonas}
+    from bisect import bisect_right
+    for l in linhas:
+        if not l["dia"]:
+            continue
+        i = bisect_right(inicios, l["dia"]) - 1
+        if i < 0:
+            continue
+        a = l["id_pub"] in ameaca
+        for z in [c for c in provs.get(l["id_pub"], []) if c in PROVINCIAS] + [NACIONAL]:
+            mencoes[z][i] += 1
+            valores[z][i] += a
+    return {"baldes": [{"inicio": b.inicio.isoformat(), "fim": b.fim.isoformat(), "rotulo": b.rotulo()} for b in bs],
+            "passo_dias": 1 if per.dias <= 14 else bs[-1].dias, "mencoes": mencoes, "valores": valores,
+            "min_casos": defs["min_casos"]}
+
+
 def relatorio(bd: BaseDados, per: Periodo) -> dict:
     """Relatório de alertas de ameaças no período escolhido (confirmadas pelos analistas)."""
     defs = ler_definicoes(bd)

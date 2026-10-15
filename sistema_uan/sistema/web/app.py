@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 
 from .. import alertas as al
 from ..base_dados import BaseDados
-from ..classificador import Classificador, carregar_classificador
+from ..classificador import Classificador, ClassificadorDemonstracao, carregar_classificador
 from ..geografia import PROVINCIAS, localizar_toponimos, mapa as mapa_geo
 from ..config import NOMES_APRESENTACAO, PAPEIS, ROTULOS, Config, obter_config
 from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, recolher_fonte
@@ -146,10 +146,51 @@ def realcar(texto: str | None) -> Markup:
     return Markup("").join(out)
 
 
+def _ficha_modelo(cfg: Config) -> dict:
+    """Ficha do modelo: a da pasta do modelo, se existir (ficha_modelo.json), senão a de referência do sistema."""
+    candidatos = []
+    if cfg.caminho_modelo:
+        candidatos.append(Path(cfg.caminho_modelo) / "ficha_modelo.json")
+    candidatos.append(PASTA.parent / "ficha_modelo.json")
+    for c in candidatos:
+        try:
+            if c.is_file():
+                return {**json.loads(c.read_text(encoding="utf-8")), "origem_ficha": str(c.name if c.parent == PASTA.parent else c)}
+        except (OSError, ValueError):
+            log.warning("Ficha do modelo ilegível: %s", c)
+    return {}
+
+
+def linha_tendencia(valores, largura: int = 96, altura: int = 24, rotulo: str = "") -> Markup:
+    """Pequena linha de tendência (sparkline) em SVG, desenhada no servidor: sem JavaScript nem bibliotecas."""
+    v = [float(x or 0) for x in (valores or [])]
+    if len(v) < 2:
+        return Markup("")
+    topo = max(v) or 1.0
+    m = 2.5
+    pts = [(m + i * (largura - 2 * m) / (len(v) - 1), altura - m - (x / topo) * (altura - 2 * m)) for i, x in enumerate(v)]
+    d = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}" for i, (x, y) in enumerate(pts))
+    area = f"{d} L{pts[-1][0]:.1f},{altura - m:.1f} L{pts[0][0]:.1f},{altura - m:.1f} Z"
+    ult = pts[-1]
+    tendencia = "sobe" if v[-1] > v[-2] else ("desce" if v[-1] < v[-2] else "igual")
+    desc = rotulo or "Evolução"
+    texto = f"{desc}: " + ", ".join(f"{int(x)}" for x in v)
+    return Markup(
+        f'<svg class="linha-tendencia {tendencia}" viewBox="0 0 {largura} {altura}" width="{largura}" height="{altura}" '
+        f'role="img" aria-label="{escape(texto)}"><title>{escape(texto)}</title>'
+        f'<path class="area" d="{area}"></path><path class="traco" d="{d}"></path>'
+        f'<circle cx="{ult[0]:.1f}" cy="{ult[1]:.1f}" r="2.4"></circle></svg>')
+
+
 def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincrono: bool = False) -> FastAPI:
     """Cria a aplicação. `clf` e `sincrono` servem para os testes."""
     cfg = cfg or obter_config()
+    if cfg.demonstracao and clf is None:  # a demonstração nunca carrega o modelo real
+        clf = ClassificadorDemonstracao()
     bd = BaseDados(cfg.caminho_bd)
+    if cfg.demonstracao:
+        from ..demonstracao import povoar
+        povoar(bd)
     estado: dict = {"clf": clf, "modelo": "pronto" if clf else "a carregar", "erro_modelo": None,
                     "progresso": None, "recolha": None}
 
@@ -211,6 +252,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                            PROVINCIAS=PROVINCIAS, nomes_provincias=al.nomes_provincias)
     tpl.env.filters["json"] = lambda x: json.loads(x or "{}")
     tpl.env.filters["realcar"] = realcar
+    tpl.env.globals["linha_tendencia"] = linha_tendencia
 
     @app.middleware("http")
     async def cabecalhos(request: Request, call_next):
@@ -270,8 +312,14 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                 "modelo_nome": estado["clf"].nome if estado["clf"] else None,
                 "modelo_versao": estado["clf"].versao if estado["clf"] else None,
                 "progresso": estado["progresso"], "recolha": estado["recolha"], "caminho": request.url.path,
-                "cega_activa": revisao_cega()}
+                "cega_activa": revisao_cega(), "demonstracao": cfg.demonstracao,
+                "tema": request.cookies.get("uan_tema") if request.cookies.get("uan_tema") in ("claro", "escuro") else ""}
+        if cfg.demonstracao:
+            from ..demonstracao import CONTAS, SENHA
+            base["contas_demo"] = [u for u, _, _ in CONTAS]
+            base["senha_demo"] = SENHA
         if s:
+            base["visita_pendente"] = bd.definicao(f"visita_vista:{s['utilizador']}", "0") != "1"
             base["n_fila_meus"] = bd.n_fila(s["utilizador"])
             base["n_amostra_meus"] = len(bd.fila_amostra(s["utilizador"], 10**6))
             base["n_alertas_novos"] = bd.consultar(
@@ -519,13 +567,50 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         verificar_csrf(s, csrf)
         return ir("/lotes", "classificar" if _classificar_fundo(s["utilizador"]) else "ocupado")
 
+    def _alertas_por_ver(utilizador: str, limite: int = 5) -> tuple[int, list[dict]]:
+        n = bd.consultar(
+            """SELECT COUNT(*) AS n FROM alertas a WHERE NOT EXISTS
+               (SELECT 1 FROM alertas_vistos v WHERE v.id_alerta = a.id_alerta AND v.utilizador = ?)""",
+            (utilizador,))[0]["n"]
+        rows = bd.consultar(
+            """SELECT a.id_alerta, a.tipo, a.titulo, a.criado_em, a.id_pub,
+                      EXISTS(SELECT 1 FROM alertas_vistos v WHERE v.id_alerta = a.id_alerta AND v.utilizador = ?) AS visto
+               FROM alertas a ORDER BY a.id_alerta DESC LIMIT ?""", (utilizador, limite))
+        return n, [{"id": r["id_alerta"], "tipo": r["tipo"], "titulo": r["titulo"], "quando": _hora(r["criado_em"]),
+                    "ligacao": f"/publicacao/{r['id_pub']}" if r["id_pub"] else "/alertas", "visto": bool(r["visto"])}
+                   for r in rows]
+
     @app.get("/estado")
     def estado_json(request: Request):
-        sessao(request)
+        s = sessao(request)
         p = estado["progresso"]
+        n_alertas, recentes = _alertas_por_ver(s["utilizador"], 1)
         return {"modelo": estado["modelo"], "pendentes": bd.n_pendentes(),
                 "classificacao": None if not p else {"feitos": p["feitos"], "total": p["total"]},
-                "recolha": estado["recolha"]}
+                "recolha": estado["recolha"], "alertas_por_ver": n_alertas,
+                "ultimo_alerta": recentes[0] if recentes else None, "fila": bd.n_fila(s["utilizador"])}
+
+    @app.get("/alertas/recentes")
+    def alertas_recentes(request: Request):
+        """Últimos 5 alertas, para o sino no topo da página."""
+        s = sessao(request)
+        n, recentes = _alertas_por_ver(s["utilizador"], 5)
+        return {"por_ver": n, "alertas": recentes}
+
+    @app.get("/modelo", response_class=HTMLResponse)
+    def sobre_o_modelo(request: Request):
+        sessao(request)
+        ficha = _ficha_modelo(cfg)
+        m = metricas(bd)
+        return pagina(request, "modelo.html", {"ficha": ficha, "m": m,
+                                               "a_usar_demo": (estado["clf"] is not None and estado["clf"].nome == "DEMONSTRACAO")})
+
+    @app.post("/visita/vista")
+    def visita_vista(request: Request, csrf: str = Form("")):
+        s = sessao(request)
+        verificar_csrf(s, csrf)
+        bd.definir(f"visita_vista:{s['utilizador']}", "1", s["utilizador"])
+        return {"ok": True}
 
     # ------------------------------------------------------------------ fontes e recolha
     def _recolher_fundo(ids: list[int], quem: str) -> bool:
@@ -647,19 +732,40 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         a, b = (0xF6, 0xEF, 0xE6), (0xA3, 0x26, 0x1A)
         return "#" + "".join(f"{round(x + (y - x) * (0.12 + 0.88 * t)):02x}" for x, y in zip(a, b)) if taxa > 0 else "#f6efe6"
 
-    @app.get("/mapa", response_class=HTMLResponse)
-    def ver_mapa(request: Request, de: str = "", ate: str = "", dias: str = "", modo: str = "confirmadas",
-                 categoria: str = ""):
-        sessao(request)
+    def _preparar_mapa(d: dict, geo: dict) -> None:
+        for l in d["provincias"]:
+            g = geo["provincias"][l["codigo"]]
+            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"], cor=_cor(l["taxa"], d["max_taxa"], l["suficiente"], l["mencoes"]))
+
+    def _dados_mapa(de, ate, dias, modo, categoria):
         per = al.periodo(de, ate, dias)
         cat = categoria if categoria in ROTULOS and categoria != "Normal" else None
         d = al.dados_mapa(bd, per, modo, cat)
         geo = mapa_geo()
-        for l in d["provincias"]:
-            g = geo["provincias"][l["codigo"]]
-            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"], cor=_cor(l["taxa"], d["max_taxa"], l["suficiente"], l["mencoes"]))
+        _preparar_mapa(d, geo)
+        return per, cat, d, geo
+
+    @app.get("/mapa", response_class=HTMLResponse)
+    def ver_mapa(request: Request, de: str = "", ate: str = "", dias: str = "", modo: str = "confirmadas",
+                 categoria: str = ""):
+        sessao(request)
+        per, cat, d, geo = _dados_mapa(de, ate, dias, modo, categoria)
+        serie = al.serie(bd, per, d["modo"], cat)
         return pagina(request, "mapa.html", {"m": d, "geo": geo, "per": per, "modo": d["modo"], "categoria": cat or "",
-                                             "fonte_geo": geo["fonte"]})
+                                             "fonte_geo": geo["fonte"], "serie": serie})
+
+    @app.get("/mapa.svg")
+    def mapa_svg_exportar(request: Request, de: str = "", ate: str = "", dias: str = "", modo: str = "confirmadas",
+                          categoria: str = ""):
+        """Mapa autónomo, com título, período, legenda e fonte, para descarregar (SVG) ou converter em PNG."""
+        s = sessao(request)
+        per, cat, d, geo = _dados_mapa(de, ate, dias, modo, categoria)
+        bd.auditar(s["utilizador"], "exportacao_mapa", {"periodo": per.rotulo(), "modo": d["modo"]})
+        corpo = tpl.env.get_template("mapa_exportar.svg").render(
+            m=d, geo=geo, per=per, categoria=NOMES_APRESENTACAO.get(cat, "") if cat else "",
+            gerado=_hora(datetime.now(timezone.utc).isoformat()))
+        return Response(corpo, media_type="image/svg+xml; charset=utf-8", headers={
+            "Content-Disposition": f"inline; filename=mapa_{d['modo']}_{per.inicio}_{per.fim}.svg"})
 
     @app.get("/relatorio", response_class=HTMLResponse)
     def ver_relatorio(request: Request, de: str = "", ate: str = "", dias: str = ""):
@@ -667,12 +773,11 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         per = al.periodo(de, ate, dias)
         rel = al.relatorio(bd, per)
         geo = mapa_geo()
-        for l in rel["mapa"]["provincias"]:
-            g = geo["provincias"][l["codigo"]]
-            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"],
-                     cor=_cor(l["taxa"], rel["mapa"]["max_taxa"], l["suficiente"], l["mencoes"]))
+        _preparar_mapa(rel["mapa"], geo)
         bd.auditar(s["utilizador"], "relatorio", {"periodo": per.rotulo()})
         return pagina(request, "relatorio.html", {"rel": rel, "per": per, "geo": geo, "m": rel["mapa"],
+                                                  "serie": al.serie(bd, per, "confirmadas"),
+                                                  "serie_sinal": al.serie(bd, per, "sinalizadas"),
                                                   "email_ok": cfg.email_configurado,
                                                   "destinatarios": al.ler_definicoes(bd)["destinatarios"]})
 

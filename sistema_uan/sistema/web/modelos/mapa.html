@@ -6,7 +6,12 @@
 <div class="cabecalho">
   <div><h1>Mapa por província</h1>
   <p>{{ per.rotulo() }} · comparado com {{ m.anterior.rotulo() }}. A cor é a taxa de {{ rotulo }} sobre as publicações que mencionam a província.</p></div>
-  <a class="botao secundario" href="/relatorio?de={{ per.inicio }}&ate={{ per.fim }}">Ver relatório</a>
+  {% set q = 'de=' ~ per.inicio ~ '&ate=' ~ per.fim ~ '&modo=' ~ modo ~ '&categoria=' ~ categoria %}
+  <div class="accoes nao-imprimir">
+    <a class="botao secundario" href="/mapa.svg?{{ q }}" download>Descarregar SVG</a>
+    <button class="botao secundario" type="button" data-png="/mapa.svg?{{ q }}" data-nome="mapa_{{ modo }}_{{ per.inicio }}_{{ per.fim }}.png">Descarregar PNG</button>
+    <a class="botao secundario" href="/relatorio?de={{ per.inicio }}&ate={{ per.fim }}">Ver relatório</a>
+  </div>
 </div>
 
 <form class="filtros" method="get" action="/mapa">
@@ -31,12 +36,23 @@
 <div class="grelha mapa-grelha">
   <div class="cartao">
     {{ mapa_svg(m, geo, rotulo) }}
+    {% if serie.baldes|length > 1 %}
+    <div class="mapa-tempo nao-imprimir" data-tempo>
+      <button class="botao secundario pequeno" type="button" data-tocar aria-label="Reproduzir a evolução no tempo">▶ Reproduzir</button>
+      <input type="range" min="0" max="{{ serie.baldes|length }}" value="{{ serie.baldes|length }}" step="1" data-cursor
+             aria-label="{{ 'Dia' if serie.passo_dias == 1 else 'Semana' }} a mostrar no mapa">
+      <span class="mapa-tempo-rotulo" data-rotulo aria-live="polite">Período completo</span>
+    </div>
+    <script type="application/json" id="mapa-serie">{{ serie|tojson }}</script>
+    {% endif %}
     <p class="ajuda">A província é o lugar mencionado no texto ou no título, não a localização de quem escreveu. Limites: {{ fonte_geo }}.</p>
   </div>
   <div>
     <div class="grelha g2">
-      <div class="cartao kpi"><div class="valor">{{ m.nacional.valor|num }}</div><div class="rotulo">{{ rotulo|capitalize }} no país (antes: {{ m.nacional.valor_antes|num }})</div></div>
-      <div class="cartao kpi"><div class="valor">{{ m.nacional.mencoes|num }}</div><div class="rotulo">Publicações no período</div></div>
+      <div class="cartao kpi"><div class="valor">{{ m.nacional.valor|num }}</div><div class="rotulo">{{ rotulo|capitalize }} no país (antes: {{ m.nacional.valor_antes|num }})</div>
+        {{ linha_tendencia(serie.valores['NAC'], 140, 30, rotulo|capitalize ~ ' por ' ~ ('dia' if serie.passo_dias == 1 else 'semana')) }}</div>
+      <div class="cartao kpi"><div class="valor">{{ m.nacional.mencoes|num }}</div><div class="rotulo">Publicações no período</div>
+        {{ linha_tendencia(serie.mencoes['NAC'], 140, 30, 'Publicações por ' ~ ('dia' if serie.passo_dias == 1 else 'semana')) }}</div>
     </div>
     <div class="cartao mt">
       <h2>Sem localização</h2>
@@ -47,13 +63,14 @@
 
 <div class="cartao seccao">
   <h2>Por província</h2>
-  <div class="tabela-envolvente"><table class="tabela">
-    <thead><tr><th>Província</th><th class="num">Publicações</th><th class="num">{{ 'Confirmadas' if modo == 'confirmadas' else 'Sinalizadas' }}</th><th class="num">Taxa</th><th class="num">Período anterior</th><th class="num">Variação</th><th>Categorias</th></tr></thead>
+  <div class="tabela-envolvente fixa"><table class="tabela" data-ordenar>
+    <thead><tr><th>Província</th><th class="num">Publicações</th><th class="num">{{ 'Confirmadas' if modo == 'confirmadas' else 'Sinalizadas' }}</th><th class="num">Taxa</th><th class="num">Período anterior</th><th class="num">Variação</th><th data-sem-ordem>Evolução</th><th data-sem-ordem>Categorias</th></tr></thead>
     <tbody>
     {% for l in m.provincias|sort(attribute='valor', reverse=True) %}
-      <tr id="prov-{{ l.codigo }}"><td>{{ l.nome }}</td><td class="num">{{ l.mencoes|num }}</td><td class="num">{{ l.valor|num }}</td>
-        <td class="num">{{ l.taxa|pct(1) if l.taxa is not none else '—' }}</td><td class="num">{{ l.valor_antes|num }}</td>
-        <td class="num {{ 'sobe' if l.variacao > 0 else ('desce' if l.variacao < 0 else '') }}">{{ ('+' if l.variacao > 0 else '') ~ l.variacao }}</td>
+      <tr id="prov-{{ l.codigo }}" data-prov="{{ l.codigo }}"><td>{{ l.nome }}</td><td class="num">{{ l.mencoes|num }}</td><td class="num">{{ l.valor|num }}</td>
+        <td class="num" data-v="{{ l.taxa if l.taxa is not none else -1 }}">{{ l.taxa|pct(1) if l.taxa is not none else '—' }}</td><td class="num">{{ l.valor_antes|num }}</td>
+        <td class="num {{ 'sobe' if l.variacao > 0 else ('desce' if l.variacao < 0 else '') }}" data-v="{{ l.variacao }}">{{ ('+' if l.variacao > 0 else '') ~ l.variacao }}</td>
+        <td>{{ linha_tendencia(serie.valores[l.codigo], 96, 24, l.nome) }}</td>
         <td>{% for c, n in l.categorias.items() %}<span class="pilula">{{ NOMES[c] }} {{ n }}</span> {% endfor %}</td></tr>
     {% endfor %}
     </tbody></table></div>

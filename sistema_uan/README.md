@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Os testes (31) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
+Os testes (74) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
 
 ## 2. Configuração: ficheiro `uan.env`
 
@@ -67,6 +67,14 @@ python uan.py servir
 
 Abra **http://127.0.0.1:8000**. Na primeira vez, a aplicação pede para criar a conta do **supervisor**. O supervisor cria depois as contas dos analistas na página *Utilizadores* (também é possível pela linha de comandos: `python uan.py criar-utilizador ana --nome "Ana" --papel analista`).
 
+**Demonstração.** Para apresentar o sistema (por exemplo, na defesa) sem tocar nos dados reais:
+
+```
+python uan.py servir --demonstracao
+```
+
+Cria, na primeira vez, a base `dados\demonstracao.db` com cerca de 1 500 publicações **fictícias** (16 semanas, 18 províncias), decisões de analistas e alertas, e usa o classificador de demonstração. Todas as páginas mostram a faixa "Demonstração" e nenhum e-mail é enviado, mesmo com o servidor de e-mail configurado. Contas: `demo.supervisor`, `demo.analista` e `demo.revisor`, palavra-passe `demonstracao`. `--repor` apaga e recria os dados fictícios. A base real (`dados\sistema.db`) não é aberta.
+
 Por omissão o servidor só aceita ligações do próprio computador. Para outros computadores da rede local usarem o sistema: `python uan.py servir --anfitriao 0.0.0.0` (abra a porta 8000 na firewall do Windows só para a rede interna; para uso fora de um teste, coloque o serviço atrás de HTTPS e defina `UAN_COOKIE_SEGURO=1`).
 
 ## 4. Páginas
@@ -74,17 +82,24 @@ Por omissão o servidor só aceita ligações do próprio computador. Para outro
 | Página | Quem | Para quê |
 |---|---|---|
 | Panorama | todos | Contagens por categoria, dia, plataforma e lote; nunca por autor |
-| Fila de revisão | todos | Itens sinalizados por prioridade, com lugares e dados anonimizados realçados no texto. Decisão com os botões ou as teclas `1`–`4`, sem recarregar a página; `U` desfaz durante 5 segundos (o e-mail de um alerta só sai 8 segundos depois, para o desfazer o poder anular); `D` abre o detalhe num painel lateral; `J`/`K` mudam de item; `N` nota; `?` mostra todos os atalhos (`G` + `F`/`A`/`M`/`R`/`P` para navegar) |
+| Fila de revisão | todos | Itens sinalizados por prioridade, com lugares e dados anonimizados realçados no texto. Decisão com os botões ou as teclas `1`–`4`, sem recarregar a página; `U` desfaz durante 5 segundos (o e-mail de um alerta só sai 8 segundos depois, para o desfazer o poder anular); `D` abre o detalhe num painel lateral; `J`/`K` mudam de item; `N` nota; `?` mostra todos os atalhos (`G` + `F`/`A`/`M`/`R`/`P`/`O` para navegar) |
 | Amostra de controlo | todos | Itens que o modelo classificou como Normal, sorteados, sempre sem a sugestão do modelo |
 | Fontes e recolha | supervisor | Registar fontes públicas (vídeo ou canal do YouTube, feed RSS, página ou sítio de notícias) e recolher novos dados; cada recolha cria um lote |
-| Alertas | todos | Ameaças confirmadas e tendências; contador de alertas por ver no menu |
-| Mapa | todos | 18 províncias (divisão anterior a 2025): taxa de ameaças confirmadas (ou sinalizadas) e variação face ao período anterior, no período escolhido |
-| Relatório | todos (enviar por e-mail: supervisor) | Relatório de alertas de ameaças do período escolhido: indicadores, mapa, categorias, alertas e ameaças confirmadas; imprimir/PDF, CSV, e-mail |
+| Alertas | todos | Ameaças confirmadas e tendências; contador de alertas por ver no menu e no sino do topo (últimos 5); um alerta novo aparece em tempo real, sem recarregar |
+| Mapa | todos | 18 províncias (divisão anterior a 2025): taxa de ameaças confirmadas (ou sinalizadas) e variação face ao período anterior. Cartão com os números ao passar o rato; clique destaca a linha da tabela; ▶ reproduz a evolução semana a semana; linhas de tendência por província; descarregar em SVG ou PNG |
+| Relatório | todos (enviar por e-mail: supervisor) | Relatório de alertas de ameaças do período escolhido: indicadores com tendência, mapa, categorias, alertas e ameaças confirmadas; tabelas ordenáveis; imprimir/PDF, CSV, e-mail |
+| Sobre o modelo | todos | Ficha do modelo: versão, data de treino, F1 por categoria, desempenho em conteúdo angolano, limitações e o acordo real entre analistas e modelo nesta instalação |
 | Lotes | todos (importar: supervisor) | Importar ficheiros, ver a proveniência e classificar pendentes |
 | Métricas | supervisor | Precisão@K, κ analista–sistema, κ entre analistas, sensibilidade com IC 95%, latência; exportar revisões e JSON |
 | Utilizadores | supervisor | Criar, desactivar, redefinir palavra-passe |
 | Auditoria | supervisor | Entradas, importações, classificações, revisões, exportações e alterações |
 | Definições | supervisor | Revisão cega, limpeza de conservação, cópia de segurança |
+
+No topo de cada página: **Procurar** (`Ctrl`+`K`) abre uma paleta para ir a qualquer página ou acção (por exemplo, "rel 7" → relatório dos últimos 7 dias); o **sino** mostra os últimos alertas; o botão de **tema** alterna entre automático (segue o sistema), escuro e claro. Na primeira entrada, uma **visita guiada** de 4 passos apresenta a fila, os alertas, o mapa e a ficha do modelo; pode repeti-la em *Visita guiada*, no fundo do menu. As tabelas do mapa e do relatório ordenam-se clicando no cabeçalho.
+
+Tudo funciona sem Internet: a interface não usa bibliotecas, tipos de letra nem ícones externos, e a política de segurança (CSP) só permite recursos do próprio servidor.
+
+A ficha do modelo é lida de `ficha_modelo.json` na pasta do modelo (`UAN_MODELO`), se existir; caso contrário, usa a ficha de referência em `sistema\ficha_modelo.json`. Ao treinar um modelo novo, copie e actualize essa ficha para a pasta do modelo.
 
 A API JSON está em `/api` (documentação em `/api/docs`), com o cabeçalho `X-Chave-API`.
 
