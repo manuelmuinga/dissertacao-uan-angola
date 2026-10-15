@@ -74,7 +74,7 @@ Por omissão o servidor só aceita ligações do próprio computador. Para outro
 | Página | Quem | Para quê |
 |---|---|---|
 | Panorama | todos | Contagens por categoria, dia, plataforma e lote; nunca por autor |
-| Fila de revisão | todos | Itens sinalizados por prioridade; decisão com os botões ou as teclas `1`–`4`, `J`/`K` para mudar de item, `N` para nota |
+| Fila de revisão | todos | Itens sinalizados por prioridade, com lugares e dados anonimizados realçados no texto. Decisão com os botões ou as teclas `1`–`4`, sem recarregar a página; `U` desfaz durante 5 segundos (o e-mail de um alerta só sai 8 segundos depois, para o desfazer o poder anular); `D` abre o detalhe num painel lateral; `J`/`K` mudam de item; `N` nota; `?` mostra todos os atalhos (`G` + `F`/`A`/`M`/`R`/`P` para navegar) |
 | Amostra de controlo | todos | Itens que o modelo classificou como Normal, sorteados, sempre sem a sugestão do modelo |
 | Fontes e recolha | supervisor | Registar fontes públicas (vídeo ou canal do YouTube, feed RSS, página ou sítio de notícias) e recolher novos dados; cada recolha cria um lote |
 | Alertas | todos | Ameaças confirmadas e tendências; contador de alertas por ver no menu |

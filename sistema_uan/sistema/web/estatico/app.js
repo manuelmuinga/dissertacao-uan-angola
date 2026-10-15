@@ -51,6 +51,60 @@
     history.replaceState(null, "", location.pathname + (q === "?" ? "" : q) + location.hash);
   }
 
+  // ---------- notificações no canto ----------
+  var canto = document.getElementById("avisos-canto");
+  function sairToast(t) {
+    if (!t || t.classList.contains("a-sair")) return;
+    t.classList.add("a-sair");
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, reduzirMovimento ? 0 : 220);
+  }
+  // toast(texto, {tipo: "ok"|"erro"|"info", accao: {rotulo, tecla, fn}, ms})
+  function toast(texto, op) {
+    op = op || {};
+    if (!canto) return null;
+    var ms = op.ms || (op.accao ? 5000 : 4000);
+    var t = document.createElement("div");
+    t.className = "toast " + (op.tipo || "ok");
+    t.setAttribute("role", op.tipo === "erro" ? "alert" : "status");
+    var span = document.createElement("span"); span.className = "toast-texto"; span.textContent = texto; t.appendChild(span);
+    if (op.accao) {
+      var b = document.createElement("button"); b.type = "button"; b.textContent = op.accao.rotulo;
+      if (op.accao.tecla) { var k = document.createElement("kbd"); k.textContent = op.accao.tecla; b.appendChild(k); }
+      b.addEventListener("click", function () { sairToast(t); op.accao.fn(); });
+      t.appendChild(b);
+      var barra = document.createElement("i"); barra.className = "toast-tempo"; barra.style.animationDuration = ms + "ms"; t.appendChild(barra);
+    }
+    canto.appendChild(t);
+    while (canto.children.length > 3) sairToast(canto.firstElementChild);
+    var tempo = setTimeout(function () { sairToast(t); }, ms);
+    t.addEventListener("mouseenter", function () { clearTimeout(tempo); });
+    t.addEventListener("mouseleave", function () { tempo = setTimeout(function () { sairToast(t); }, 1500); });
+    return t;
+  }
+  cada("[data-toast-servidor]", function (t) { setTimeout(function () { sairToast(t); }, 4500); });
+
+  function csrf() { var i = document.querySelector("input[name=csrf]"); return i ? i.value : ""; }
+  function enviar(url, dados) {
+    var corpo = new URLSearchParams();
+    Object.keys(dados).forEach(function (k) { corpo.append(k, dados[k]); });
+    return fetch(url, { method: "POST", credentials: "same-origin", body: corpo,
+                        headers: { "X-Pedido": "fetch", "Accept": "application/json" } })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (!r.ok) throw new Error(d.detail || "Não foi possível concluir. Tente de novo.");
+          return d;
+        });
+      });
+  }
+  function actualizarContador(href, n) {
+    var a = document.querySelector('.menu a[href="' + href + '"]');
+    if (!a) return;
+    var c = a.querySelector(".contador");
+    if (!n) { if (c) c.parentNode.removeChild(c); return; }
+    if (!c) { c = document.createElement("span"); c.className = "contador"; a.appendChild(c); }
+    c.textContent = String(n);
+  }
+
   // ---------- fila: atalhos de teclado ----------
   // J/K ou setas: item seguinte/anterior · 1-4: decisão · N: escrever nota
   var itens = Array.prototype.slice.call(document.querySelectorAll(".item[data-id]"));
@@ -77,10 +131,128 @@
     else if (k === "n") {
       var nota = itens[actual].querySelector("input[name=nota]");
       if (nota) { e.preventDefault(); nota.focus(); }
+    } else if (k === "d") {
+      var det = itens[actual].querySelector("a[data-painel]");
+      if (det) { e.preventDefault(); det.click(); }
     } else if (["1", "2", "3", "4"].indexOf(k) >= 0) {
       var botao = itens[actual].querySelector("button[data-tecla='" + k + "']");
       if (botao) { e.preventDefault(); botao.click(); }
     }
+  });
+
+  // ---------- decisão sem recarregar e desfazer ----------
+  var ultimaDecisao = null;   // {item, id, proximo, pai, toast}
+  function retirarItem(item) {
+    var i = itens.indexOf(item);
+    item.classList.add("a-sair-item");
+    setTimeout(function () {
+      if (item.parentNode) item.parentNode.removeChild(item);
+      itens = itens.filter(function (x) { return x !== item; });
+      if (!itens.length) { setTimeout(recarregarSuave, 5300); return; }   // página vazia: trazer os seguintes depois do prazo de desfazer
+      focar(Math.min(i, itens.length - 1));
+    }, reduzirMovimento ? 0 : 280);
+  }
+  function desfazer() {
+    var u = ultimaDecisao;
+    if (!u) return;
+    ultimaDecisao = null;
+    if (u.toast) sairToast(u.toast);
+    enviar("/rever/desfazer", { csrf: csrf(), id_pub: u.id }).then(function (d) {
+      u.item.classList.remove("a-sair-item");
+      cada("button", function (b) { b.disabled = false; }, u.item);
+      u.item.querySelector("form").reset();
+      if (u.proximo && u.proximo.parentNode) u.pai.insertBefore(u.item, u.proximo); else u.pai.insertBefore(u.item, u.pai.querySelector(".paginacao"));
+      u.item.classList.add("a-voltar-item");
+      setTimeout(function () { u.item.classList.remove("a-voltar-item"); }, 320);
+      itens = Array.prototype.slice.call(document.querySelectorAll(".item[data-id]"));
+      focar(itens.indexOf(u.item));
+      actualizarContador("/fila", d.n_fila); actualizarContador("/amostra", d.n_amostra);
+      toast(d.alerta_anulado ? "Decisão desfeita. O alerta que tinha gerado foi anulado." : "Decisão desfeita.", { tipo: "info" });
+    }).catch(function (err) { toast(err.message, { tipo: "erro" }); });
+  }
+  cada("form[data-decisao]", function (f) {
+    f.addEventListener("submit", function (e) {
+      if (!window.fetch || !window.URLSearchParams) return;   // navegador antigo: envio normal
+      e.preventDefault();
+      var botao = e.submitter;
+      if (!botao || botao.name !== "categoria" || f.dataset.aEnviar) return;
+      f.dataset.aEnviar = "1";
+      var item = f.closest(".item");
+      var dados = {};
+      Array.prototype.forEach.call(f.elements, function (el) { if (el.name && el.type !== "submit") dados[el.name] = el.value; });
+      dados.categoria = botao.value;
+      cada("button", function (b) { b.disabled = true; }, f);
+      enviar("/rever", dados).then(function (d) {
+        delete f.dataset.aEnviar;
+        if (ultimaDecisao && ultimaDecisao.toast) sairToast(ultimaDecisao.toast);
+        ultimaDecisao = { item: item, id: d.id_pub, proximo: item.nextElementSibling, pai: item.parentNode };
+        retirarItem(item);
+        actualizarContador("/fila", d.n_fila); actualizarContador("/amostra", d.n_amostra);
+        var esta = ultimaDecisao;
+        esta.toast = toast("Decisão gravada: " + d.nome + (d.alertas_novos ? " · alerta gerado" : "") + ".",
+          { accao: { rotulo: "Desfazer", tecla: "U", fn: desfazer } });
+        setTimeout(function () { if (ultimaDecisao === esta) ultimaDecisao = null; }, 5200);
+      }).catch(function (err) {
+        delete f.dataset.aEnviar;
+        cada("button", function (b) { b.disabled = false; }, f);
+        toast(err.message, { tipo: "erro" });
+      });
+    });
+  });
+
+  // ---------- painel lateral de detalhe ----------
+  var painel = document.getElementById("painel"), painelFundo = document.getElementById("painel-fundo");
+  var painelCorpo = document.getElementById("painel-corpo"), painelOrigem = null;
+  function fecharPainel() {
+    if (!painel || painel.hidden) return;
+    painel.classList.add("a-sair");
+    setTimeout(function () { painel.hidden = true; painel.classList.remove("a-sair"); painelFundo.hidden = true; painelCorpo.innerHTML = ""; },
+      reduzirMovimento ? 0 : 200);
+    if (painelOrigem) painelOrigem.focus();
+  }
+  if (painel) {
+    painel.querySelector(".painel-fechar").addEventListener("click", fecharPainel);
+    painelFundo.addEventListener("click", fecharPainel);
+    cada("a[data-painel]", function (a) {
+      a.addEventListener("click", function (e) {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || !window.fetch) return;   // abrir noutro separador continua a funcionar
+        e.preventDefault();
+        painelOrigem = a;
+        document.getElementById("painel-abrir").href = a.getAttribute("href");
+        painelCorpo.innerHTML = '<div class="carregar"></div>';
+        painelFundo.hidden = false; painel.hidden = false;
+        painel.querySelector(".painel-fechar").focus();
+        fetch(a.getAttribute("href") + "?parcial=1", { credentials: "same-origin", headers: { "X-Pedido": "fetch" } })
+          .then(function (r) { if (!r.ok) throw new Error(); return r.text(); })
+          .then(function (html) { painelCorpo.innerHTML = html; })
+          .catch(function () { fecharPainel(); toast("Não foi possível abrir o detalhe.", { tipo: "erro" }); });
+      });
+    });
+  }
+
+  // ---------- ajuda de atalhos e navegação por teclado ----------
+  var ajuda = document.getElementById("atalhos-ajuda"), ajudaFundo = document.getElementById("atalhos-fundo");
+  function mostrarAjuda(v) {
+    if (!ajuda) return;
+    ajuda.hidden = !v; ajudaFundo.hidden = !v;
+    if (v) ajuda.querySelector("[data-fechar-atalhos]").focus();
+  }
+  if (ajuda) {
+    ajuda.querySelector("[data-fechar-atalhos]").addEventListener("click", function () { mostrarAjuda(false); });
+    ajudaFundo.addEventListener("click", function () { mostrarAjuda(false); });
+  }
+  var esperaG = 0;
+  var DESTINOS = { f: "/fila", a: "/alertas", m: "/mapa", r: "/relatorio", p: "/" };
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Escape") { mostrarAjuda(false); fecharPainel(); return; }
+    var alvo = e.target;
+    if (alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.tagName === "SELECT" || alvo.isContentEditable)) return;
+    var k = e.key.toLowerCase();
+    if (e.key === "?") { e.preventDefault(); mostrarAjuda(ajuda && ajuda.hidden); return; }
+    if (esperaG && Date.now() - esperaG < 1200 && DESTINOS[k]) { e.preventDefault(); esperaG = 0; window.location.href = DESTINOS[k]; return; }
+    esperaG = (k === "g") ? Date.now() : 0;
+    if (k === "u" && ultimaDecisao) { e.preventDefault(); desfazer(); }
   });
 
   // ---------- formulários: confirmação e estado "a enviar" ----------
@@ -91,7 +263,7 @@
   });
   cada("form", function (f) {
     f.addEventListener("submit", function (e) {
-      if (e.defaultPrevented || f.method.toLowerCase() !== "post") return;
+      if (e.defaultPrevented || f.method.toLowerCase() !== "post" || f.hasAttribute("data-decisao")) return;
       if (f.dataset.aEnviar) { e.preventDefault(); return; }   // evita envios duplicados
       f.dataset.aEnviar = "1";
       var botao = e.submitter || f.querySelector("button[type=submit], button:not([type])");

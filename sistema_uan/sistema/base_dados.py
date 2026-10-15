@@ -340,6 +340,16 @@ class BaseDados:
             )
         self.auditar(analista, "revisao", {"id_pub": id_pub, "categoria": categoria, "origem": origem})
 
+    def apagar_revisao(self, id_pub: str, analista: str, max_segundos: int = 120) -> bool:
+        """Desfaz a decisão recente de um analista (só a sua e só nos últimos `max_segundos`)."""
+        limite = (datetime.now(timezone.utc) - timedelta(seconds=max_segundos)).isoformat(timespec="milliseconds")
+        with self.ligacao() as c:
+            n = c.execute("DELETE FROM revisoes WHERE id_pub = ? AND analista = ? AND revisto_em >= ?",
+                          (id_pub, analista, limite)).rowcount
+        if n:
+            self.auditar(analista, "revisao_desfeita", {"id_pub": id_pub})
+        return bool(n)
+
     # ---------------- amostra de controlo ----------------
     def fila_amostra(self, analista: str, limite: int = 50) -> list[sqlite3.Row]:
         with self.ligacao() as c:

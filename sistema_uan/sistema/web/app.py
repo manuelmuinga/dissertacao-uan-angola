@@ -16,6 +16,7 @@ import html
 import io
 import json
 import logging
+import re
 import tempfile
 import threading
 from datetime import datetime, timedelta, timezone
@@ -26,12 +27,13 @@ from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 from pydantic import BaseModel, Field
 
 from .. import alertas as al
 from ..base_dados import BaseDados
 from ..classificador import Classificador, carregar_classificador
-from ..geografia import PROVINCIAS, mapa as mapa_geo
+from ..geografia import PROVINCIAS, localizar_toponimos, mapa as mapa_geo
 from ..config import NOMES_APRESENTACAO, PAPEIS, ROTULOS, Config, obter_config
 from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, recolher_fonte
 from ..servico import (VIAS, classificacao_em_curso, classificar_pendentes, exportar_revisoes,
@@ -67,6 +69,7 @@ AVISOS = {
     "alertas_def": ("ok", "Definições dos alertas gravadas."),
     "email_teste": ("ok", "E-mail de teste enviado. Confirme a caixa de entrada dos destinatários."),
     "relatorio_enviado": ("ok", "Relatório enviado por e-mail aos destinatários definidos."),
+    "desfeita": ("ok", "Decisão desfeita. O item voltou à fila."),
 }
 VIAS_NOMES = {
     "api_oficial": "API oficial da plataforma",
@@ -119,6 +122,28 @@ def _num(x, casas: int = 0) -> str:
 
 def _pct(x, casas: int = 0) -> str:
     return "—" if x is None else _num(100 * x, casas) + "%"
+
+
+_MASCARA = re.compile(r"@?\[(?:URL|EMAIL|TELEFONE|UTILIZADOR)\]")
+ATRASO_EMAIL_S = 8  # tempo para o analista desfazer antes de o e-mail do alerta sair
+
+
+def realcar(texto: str | None) -> Markup:
+    """Texto da publicação com os lugares e as máscaras realçados (tudo o resto é escapado)."""
+    if not texto:
+        return Markup("")
+    marcas = [(a, b, "lugar", PROVINCIAS.get(c, c)) for a, b, c in localizar_toponimos(texto)]
+    marcas += [(m.start(), m.end(), "mascara", "Dado retirado na anonimização") for m in _MASCARA.finditer(texto)]
+    marcas.sort()
+    out, pos = [], 0
+    for a, b, tipo, titulo in marcas:
+        if a < pos:
+            continue
+        out.append(escape(texto[pos:a]))
+        out.append(Markup('<mark class="{}" title="{}">{}</mark>').format(tipo, titulo, texto[a:b]))
+        pos = b
+    out.append(escape(texto[pos:]))
+    return Markup("").join(out)
 
 
 def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincrono: bool = False) -> FastAPI:
@@ -185,6 +210,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     tpl.env.globals.update(ROTULOS=ROTULOS, NOMES=NOMES_APRESENTACAO, VIAS=VIAS, VIAS_NOMES=VIAS_NOMES, PAPEIS=PAPEIS,
                            PROVINCIAS=PROVINCIAS, nomes_provincias=al.nomes_provincias)
     tpl.env.filters["json"] = lambda x: json.loads(x or "{}")
+    tpl.env.filters["realcar"] = realcar
 
     @app.middleware("http")
     async def cabecalhos(request: Request, call_next):
@@ -211,7 +237,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
 
     @app.exception_handler(HTTPException)
     async def _erro_http(request: Request, exc: HTTPException):
-        if request.url.path.startswith("/api"):
+        if request.url.path.startswith("/api") or request.headers.get("X-Pedido") == "fetch":
             return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
         s = obter_sessao(bd, request.cookies.get(COOKIE))
         if s is None:
@@ -243,7 +269,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                 "modelo_estado": estado["modelo"], "erro_modelo": estado["erro_modelo"],
                 "modelo_nome": estado["clf"].nome if estado["clf"] else None,
                 "modelo_versao": estado["clf"].versao if estado["clf"] else None,
-                "progresso": estado["progresso"], "recolha": estado["recolha"], "caminho": request.url.path}
+                "progresso": estado["progresso"], "recolha": estado["recolha"], "caminho": request.url.path,
+                "cega_activa": revisao_cega()}
         if s:
             base["n_fila_meus"] = bd.n_fila(s["utilizador"])
             base["n_amostra_meus"] = len(bd.fila_amostra(s["utilizador"], 10**6))
@@ -392,6 +419,9 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                                id_lote=int(lote) if lote.isdigit() else None)
         return ir("/amostra", "amostra")
 
+    def pedido_fetch(request: Request) -> bool:
+        return request.headers.get("X-Pedido") == "fetch"
+
     @app.post("/rever")
     def rever(request: Request, csrf: str = Form(""), id_pub: str = Form(...), categoria: str = Form(...),
               nota: str = Form(""), origem: str = Form("fila"), posicao: str = Form(""), voltar: str = Form("/fila")):
@@ -404,11 +434,27 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                               nota.strip()[:500] or None, origem=origem, cega=origem == "amostra" or revisao_cega())
         except KeyError:
             raise HTTPException(404, "Publicação não encontrada.")
-        _depois_de_rever(id_pub)
+        novos = _depois_de_rever(id_pub)
+        if pedido_fetch(request):
+            return {"ok": True, "id_pub": id_pub, "categoria": categoria, "nome": NOMES_APRESENTACAO[categoria],
+                    "n_fila": bd.n_fila(s["utilizador"]), "n_amostra": len(bd.fila_amostra(s["utilizador"], 10**6)),
+                    "alertas_novos": len(novos)}
         return ir(destino_seguro(voltar), "revisao")
 
+    @app.post("/rever/desfazer")
+    def rever_desfazer(request: Request, csrf: str = Form(""), id_pub: str = Form(...), voltar: str = Form("/fila")):
+        s = sessao(request)
+        verificar_csrf(s, csrf)
+        if not bd.apagar_revisao(id_pub, s["utilizador"]):
+            raise HTTPException(409, "Já não é possível desfazer esta decisão.")
+        anulado = al.apos_desfazer(bd, id_pub)
+        if pedido_fetch(request):
+            return {"ok": True, "id_pub": id_pub, "alerta_anulado": anulado,
+                    "n_fila": bd.n_fila(s["utilizador"]), "n_amostra": len(bd.fila_amostra(s["utilizador"], 10**6))}
+        return ir(destino_seguro(voltar), "desfeita")
+
     @app.get("/publicacao/{id_pub}", response_class=HTMLResponse)
-    def publicacao(request: Request, id_pub: str):
+    def publicacao(request: Request, id_pub: str, parcial: int = 0):
         s = sessao(request)
         p = bd.publicacao(id_pub)
         if p is None:
@@ -417,8 +463,10 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         revs = bd.consultar("SELECT * FROM revisoes WHERE id_pub = ? ORDER BY revisto_em", (id_pub,))
         if s["papel"] != "supervisor":
             revs = [r for r in revs if r["analista"] == s["utilizador"]]
-        return pagina(request, "publicacao.html", {"it": it, "revisoes": revs,
-                                                   "cega": revisao_cega() and s["papel"] != "supervisor"})
+        ctx = {"it": it, "revisoes": revs, "cega": revisao_cega() and s["papel"] != "supervisor"}
+        if parcial:  # painel lateral da fila: só o corpo, sem menu
+            return pagina(request, "_publicacao_corpo.html", ctx)
+        return pagina(request, "publicacao.html", ctx)
 
     # ------------------------------------------------------------------ lotes
     @app.get("/lotes", response_class=HTMLResponse)
@@ -562,7 +610,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     # ------------------------------------------------------------------ alertas, mapa e relatório
     def _depois_de_rever(id_pub: str) -> list[int]:
         try:
-            return al.apos_revisao(bd, cfg, id_pub, sincrono=sincrono, fabrica_smtp=app.state.smtp_testes)
+            return al.apos_revisao(bd, cfg, id_pub, sincrono=sincrono, fabrica_smtp=app.state.smtp_testes,
+                                   atraso_s=ATRASO_EMAIL_S)
         except Exception:  # um erro nos alertas nunca impede a gravação da decisão
             log.exception("Falha ao gerar alertas para %s", id_pub)
             return []

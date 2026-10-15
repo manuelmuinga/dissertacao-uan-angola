@@ -5,7 +5,7 @@
 {% if modo == 'fila' %}
 <div class="cabecalho">
   <div><h1>Fila de revisão</h1><p>Ordenada pela probabilidade de não ser Normal. Cada analista revê a sua fila de forma independente.</p></div>
-  <div class="atalhos"><kbd>J</kbd>/<kbd>K</kbd> mudar de item · <kbd>1</kbd>–<kbd>4</kbd> decidir · <kbd>N</kbd> nota</div>
+  <div class="atalhos"><kbd>J</kbd>/<kbd>K</kbd> mudar de item · <kbd>1</kbd>–<kbd>4</kbd> decidir · <kbd>U</kbd> desfazer · <kbd>D</kbd> detalhe · <kbd>?</kbd> ajuda</div>
 </div>
 <form class="filtros" method="get" action="/fila">
   <div class="campo"><label for="f-cat">Categoria prevista</label>
@@ -23,7 +23,7 @@
 {% else %}
 <div class="cabecalho">
   <div><h1>Amostra de controlo</h1><p>Publicações que o modelo classificou como Normal, sorteadas ao acaso. Servem para estimar quantas ameaças a fila não mostra.</p></div>
-  <div class="atalhos"><kbd>J</kbd>/<kbd>K</kbd> mudar de item · <kbd>1</kbd>–<kbd>4</kbd> decidir</div>
+  <div class="atalhos"><kbd>J</kbd>/<kbd>K</kbd> mudar de item · <kbd>1</kbd>–<kbd>4</kbd> decidir · <kbd>U</kbd> desfazer · <kbd>?</kbd> ajuda</div>
 </div>
 <div class="faixa info">Aqui a sugestão do modelo está sempre escondida. Decida como se o texto viesse de uma recolha sem filtro.</div>
 {% if sessao.papel == 'supervisor' %}
@@ -50,7 +50,7 @@
 
 {% if itens %}
 {% for it in itens %}
-<article class="item" data-id="{{ it.id_pub }}" tabindex="-1" id="i-{{ loop.index }}">
+<article class="item{% if not cega and it.categoria %} marca-{{ it.categoria }}{% endif %}" data-id="{{ it.id_pub }}" tabindex="-1" id="i-{{ loop.index }}">
   <div class="item-pos">
     {% if it.posicao %}<b>{{ it.posicao }}</b><small>posição</small>{% else %}<b>{{ loop.index }}</b><small>item</small>{% endif %}
   </div>
@@ -59,13 +59,13 @@
       <span class="pilula forte">{{ it.plataforma }}</span>
       {% if it.data_publicacao %}<span>{{ it.data_publicacao|hora(True) }}</span>{% endif %}
       <span>lote #{{ it.id_lote }}</span>
-      <a href="/publicacao/{{ it.id_pub }}">detalhe</a>
+      <a href="/publicacao/{{ it.id_pub }}" data-painel>detalhe</a>
     </div>
     {% if it.contexto %}<div class="item-meta">Contexto: {{ it.contexto }}</div>{% endif %}
-    <p class="item-texto">{{ it.texto }}</p>
+    <p class="item-texto">{{ it.texto|realcar }}</p>
   </div>
   <div class="item-lado">
-    <form method="post" action="/rever">
+    <form method="post" action="/rever" data-decisao>
       <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
       <input type="hidden" name="id_pub" value="{{ it.id_pub }}">
       <input type="hidden" name="origem" value="{{ modo }}">

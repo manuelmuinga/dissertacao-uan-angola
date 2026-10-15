@@ -47,6 +47,7 @@
     </div>
   </aside>
   <main class="principal">
+    {% if cega_activa %}<div class="selo-cega" role="note" title="A sugestão do modelo está escondida para não influenciar a decisão"><span aria-hidden="true">◉</span> Revisão cega activa</div>{% endif %}
     {% if modelo_estado == 'a carregar' %}
     <div class="faixa info" id="modelo-a-carregar">O modelo está a carregar. A navegação funciona; a classificação começa quando terminar (cerca de 20 segundos).</div>
     {% elif modelo_estado == 'erro' %}
@@ -63,10 +64,35 @@
     {% if recolha %}
     <div class="faixa info" id="estado-recolha">A recolher{% if recolha.fonte %}: {{ recolha.fonte }}{% endif %} ({{ recolha.feitas }} de {{ recolha.total }} fontes concluídas). Pode continuar a trabalhar.</div>
     {% endif %}
-    {% if aviso %}<div class="faixa {{ aviso[0] }}" role="status">{{ aviso[1] }}</div>{% endif %}
+    {% if aviso and aviso[0] != 'ok' %}<div class="faixa {{ aviso[0] }}" role="status">{{ aviso[1] }}</div>{% endif %}
     {% if erro %}<div class="faixa perigo" role="alert">{{ erro }}</div>{% endif %}
     {% block conteudo %}{% endblock %}
   </main>
+</div>
+<div class="avisos-canto" id="avisos-canto" aria-live="polite" aria-atomic="false">
+  {% if aviso and aviso[0] == 'ok' %}<div class="toast ok" data-toast-servidor>{{ aviso[1] }}</div>{% endif %}
+</div>
+<div class="painel-fundo" id="painel-fundo" hidden></div>
+<aside class="painel" id="painel" role="dialog" aria-modal="true" aria-labelledby="painel-titulo" hidden>
+  <div class="painel-topo"><h2 id="painel-titulo">Detalhe da publicação</h2>
+    <a class="painel-abrir" id="painel-abrir" href="#">Abrir página</a>
+    <button class="painel-fechar" type="button" aria-label="Fechar o painel">×</button></div>
+  <div class="painel-corpo" id="painel-corpo"></div>
+</aside>
+<div class="painel-fundo" id="atalhos-fundo" hidden></div>
+<div class="atalhos-ajuda" id="atalhos-ajuda" role="dialog" aria-modal="true" aria-labelledby="atalhos-titulo" hidden>
+  <h2 id="atalhos-titulo">Atalhos de teclado</h2>
+  <dl>
+    <dt><kbd>J</kbd> <kbd>K</kbd></dt><dd>Item seguinte / anterior na fila</dd>
+    <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Decidir: Normal, Desinformação, Ódio, Mobilização</dd>
+    <dt><kbd>N</kbd></dt><dd>Escrever uma nota no item</dd>
+    <dt><kbd>U</kbd></dt><dd>Desfazer a última decisão (5 segundos)</dd>
+    <dt><kbd>D</kbd></dt><dd>Abrir o detalhe do item no painel lateral</dd>
+    <dt><kbd>G</kbd> depois <kbd>F</kbd> <kbd>A</kbd> <kbd>M</kbd> <kbd>R</kbd> <kbd>P</kbd></dt><dd>Ir para Fila, Alertas, Mapa, Relatório ou Panorama</dd>
+    <dt><kbd>?</kbd></dt><dd>Mostrar ou esconder esta ajuda</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Fechar painéis e sair dos campos</dd>
+  </dl>
+  <button class="botao secundario pequeno" type="button" data-fechar-atalhos>Fechar</button>
 </div>
 <script src="/estatico/app.js"></script>
 </body>

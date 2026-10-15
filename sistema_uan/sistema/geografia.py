@@ -99,3 +99,30 @@ def detectar_provincias(*textos: str | None) -> list[str]:
 def mapa() -> dict:
     """Contornos das 18 províncias já projectados para SVG (ver scripts/preparar_mapa_angola.py)."""
     return json.loads((Path(__file__).resolve().parent / "geo" / "angola_provincias.json").read_text(encoding="utf-8"))
+
+
+def _normalizar_posicional(texto: str) -> str:
+    """Como `normalizar`, mas carácter a carácter: o resultado tem o mesmo comprimento do original."""
+    out = []
+    for c in texto:
+        d = "".join(x for x in unicodedata.normalize("NFKD", c) if not unicodedata.combining(x)).lower()
+        out.append(d[0] if len(d) >= 1 and d[0].isalnum() and d[0].isascii() else " ")
+    return "".join(out)
+
+
+def localizar_toponimos(texto: str | None) -> list[tuple[int, int, str]]:
+    """Posições (início, fim, código da província) dos topónimos no texto ORIGINAL, sem sobreposições."""
+    if not texto:
+        return []
+    t = _normalizar_posicional(texto)
+    ocupado = [False] * len(t)
+    achados: list[tuple[int, int, str]] = []
+    for padrao, cod in _padroes():  # mais longos primeiro
+        for m in padrao.finditer(t):
+            a, b = m.span()
+            if any(ocupado[a:b]):
+                continue
+            for k in range(a, b):
+                ocupado[k] = True
+            achados.append((a, b, cod))
+    return sorted(achados)

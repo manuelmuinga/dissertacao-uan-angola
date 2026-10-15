@@ -300,13 +300,20 @@ def corpo_alerta(a, cfg: Config) -> tuple[str, str]:
 
 
 def notificar(bd: BaseDados, cfg: Config, ids: list[int], sincrono: bool = False,
-              fabrica_smtp: Callable | None = None) -> None:
-    """Envia por e-mail os alertas novos; regista o resultado no próprio alerta e na auditoria."""
+              fabrica_smtp: Callable | None = None, atraso_s: float = 0) -> None:
+    """Envia por e-mail os alertas novos; regista o resultado no próprio alerta e na auditoria.
+
+    `atraso_s` dá tempo ao analista para desfazer a decisão: um alerta anulado entretanto
+    já não existe quando chega a hora de enviar, e não sai nenhum e-mail.
+    """
     if not ids:
         return
     destinos = ler_definicoes(bd)["destinatarios"]
 
     def tarefa():
+        if atraso_s and not sincrono:
+            import time
+            time.sleep(atraso_s)
         for ida in ids:
             a = bd.consultar("SELECT * FROM alertas WHERE id_alerta = ?", (ida,))
             if not a:
@@ -334,12 +341,23 @@ def notificar(bd: BaseDados, cfg: Config, ids: list[int], sincrono: bool = False
 
 
 def apos_revisao(bd: BaseDados, cfg: Config, id_pub: str, sincrono: bool = False,
-                 fabrica_smtp: Callable | None = None) -> list[int]:
+                 fabrica_smtp: Callable | None = None, atraso_s: float = 0) -> list[int]:
     """Chamado depois de cada decisão: alerta confirmado e verificação de tendência."""
     novos = [i for i in [alerta_confirmado(bd, id_pub)] if i]
     novos += verificar_tendencias(bd)
-    notificar(bd, cfg, novos, sincrono=sincrono, fabrica_smtp=fabrica_smtp)
+    notificar(bd, cfg, novos, sincrono=sincrono, fabrica_smtp=fabrica_smtp, atraso_s=atraso_s)
     return novos
+
+
+def apos_desfazer(bd: BaseDados, id_pub: str) -> bool:
+    """Depois de desfazer uma decisão: anula o alerta confirmado se a publicação deixou de estar confirmada."""
+    if id_pub in _confirmadas(bd, ler_definicoes(bd)["min_confirmacoes"], [id_pub]):
+        return False
+    with bd.ligacao() as c:
+        n = c.execute("DELETE FROM alertas WHERE chave = ?", (f"confirmado:{id_pub}",)).rowcount
+    if n:
+        bd.auditar("sistema", "alerta_anulado", {"id_pub": id_pub, "motivo": "decisão desfeita"})
+    return bool(n)
 
 
 # ---------------------------------------------------------------- mapa e relatório

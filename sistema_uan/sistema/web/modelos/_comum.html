@@ -1,9 +1,14 @@
 {% macro cat(c) -%}<span class="cat cat-{{ c }}">{{ NOMES[c] }}</span>{%- endmacro %}
 {% set CORES = {'Normal': 'var(--c-normal)', 'Desinformacao': 'var(--c-desinformacao)', 'Odio': 'var(--c-odio)', 'Mobilizacao': 'var(--c-mobilizacao)'} %}
+{% set CURTOS = {'Normal': 'Normal', 'Desinformacao': 'Desinf.', 'Odio': 'Ódio', 'Mobilizacao': 'Mobiliz.'} %}
+{# Probabilidades numa só barra empilhada, com legenda compacta (os valores ficam sempre visíveis). #}
 {% macro barras_prob(probs) -%}
-<div class="barras">
-{% for c in ROTULOS %}{% set v = probs.get(c, 0) %}
-  <div class="barra"><span>{{ NOMES[c] }}</span><span class="barra-trilho"><i style="width: {{ (100 * v)|round(1) }}%; background: {{ CORES[c] }}"></i></span><span class="v">{{ v|pct }}</span></div>
-{% endfor %}
+<div class="prob">
+  <div class="prob-pilha" role="img" aria-label="Probabilidades do modelo: {% for c in ROTULOS %}{{ NOMES[c] }} {{ probs.get(c, 0)|pct }}{{ ', ' if not loop.last }}{% endfor %}">
+  {% for c in ROTULOS %}{% set v = probs.get(c, 0) %}{% if v >= 0.005 %}<i style="width: {{ (100 * v)|round(1) }}%; background: {{ CORES[c] }}" title="{{ NOMES[c] }}: {{ v|pct }}"></i>{% endif %}{% endfor %}
+  </div>
+  <ul class="prob-legenda">
+  {% for c in ROTULOS %}<li><span class="ponto" style="background: {{ CORES[c] }}"></span>{{ CURTOS[c] }} <b>{{ probs.get(c, 0)|pct }}</b></li>{% endfor %}
+  </ul>
 </div>
 {%- endmacro %}
