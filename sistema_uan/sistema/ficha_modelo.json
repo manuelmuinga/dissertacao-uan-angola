@@ -18,7 +18,7 @@
       "Odio": {"precisao": 0.800, "sensibilidade": 0.735, "f1": 0.766, "n": 517},
       "Mobilizacao": {"precisao": 0.562, "sensibilidade": 0.574, "f1": 0.568, "n": 47}
     },
-    "nota": "Conjunto de teste do corpus híbrido: 91% dos itens vêm de corpora públicos brasileiros. Equivalente ao modelo de referência da Secção 4.2 (McNemar p = 0,41; concordância 97,4%)."
+    "nota": "Conjunto de teste do corpus híbrido: 91% dos itens vêm de corpora públicos brasileiros. Equivalente ao modelo de referência (Secção 4.5.1 da dissertação: McNemar p = 0,41; concordância 97,4%)."
   },
   "angola": {
     "n": 355,
