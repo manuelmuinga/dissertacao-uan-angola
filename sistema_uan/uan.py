@@ -93,7 +93,10 @@ def main(argv: list[str] | None = None) -> None:
             os.environ.setdefault("UAN_SEGREDO_HASH", "demonstracao")
             print(f"MODO DE DEMONSTRAÇÃO: dados fictícios em {bd_demo}. A base de dados real não é usada.")
             print(f"Contas: {', '.join(u for u, _, _ in CONTAS)} (palavra-passe: {SENHA})")
-        print(f"Sistema UAN em http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}  (Ctrl+C para parar)")
+        endereco = f"http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}"
+        os.environ["UAN_ENDERECO_SERVIDOR"] = endereco
+        print("A preparar o sistema" + (" e os dados fictícios" if a.demonstracao else "") +
+              "... aguarde pela mensagem PRONTO antes de abrir o navegador.", flush=True)
         uvicorn.run("sistema.web.app:criar_app", factory=True, host=a.anfitriao, port=a.porta, log_level="warning")
         return
     bd = BaseDados(cfg.caminho_bd)

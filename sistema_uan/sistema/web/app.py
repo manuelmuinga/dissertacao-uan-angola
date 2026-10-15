@@ -15,6 +15,7 @@ import hmac
 import html
 import io
 import json
+import os
 import logging
 import re
 import tempfile
@@ -1049,6 +1050,12 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         chave(request)
         return metricas(bd)
 
+    def _pronto():  # só aparece quando o servidor já aceita ligações
+        endereco = os.getenv("UAN_ENDERECO_SERVIDOR")
+        if endereco:
+            print(f"PRONTO: abra {endereco} no navegador  (Ctrl+C para parar)", flush=True)
+
+    app.router.on_startup.append(_pronto)
     app.state.bd = bd
     app.state.estado = estado
     app.state.smtp_testes = smtp_testes
