@@ -11,6 +11,9 @@ Exemplos (Windows, cmd):
     python uan.py criar-utilizador supervisor --nome "Manuel Muinga" --papel supervisor
     python uan.py servir
     python uan.py copia
+    python uan.py fonte-adicionar --tipo rss --endereco https://exemplo.ao/feed --nome "Jornal X"
+    python uan.py fontes
+    python uan.py recolher
 """
 
 from __future__ import annotations
@@ -55,6 +58,13 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("criar-utilizador", help="Cria uma conta (pede a palavra-passe)")
     p.add_argument("utilizador"); p.add_argument("--nome", required=True); p.add_argument("--papel", choices=PAPEIS, default="analista")
     sub.add_parser("copia", help="Cópia de segurança da base de dados para dados\\copias")
+    from sistema.recolha import TIPOS as TIPOS_FONTE
+    p = sub.add_parser("fonte-adicionar", help="Acrescenta uma fonte de recolha")
+    p.add_argument("--tipo", required=True, choices=list(TIPOS_FONTE)); p.add_argument("--endereco", required=True)
+    p.add_argument("--nome", default=""); p.add_argument("--max", type=int, default=100)
+    sub.add_parser("fontes", help="Lista as fontes de recolha")
+    p = sub.add_parser("recolher", help="Recolhe das fontes activas (ou de uma) e classifica o que for novo")
+    p.add_argument("--fonte", type=int); p.add_argument("--sem-classificar", action="store_true")
     a = ap.parse_args(argv)
 
     cfg = obter_config()
@@ -76,6 +86,23 @@ def main(argv: list[str] | None = None) -> None:
         from datetime import datetime
         destino = Path(cfg.caminho_bd).parent / "copias" / datetime.now().strftime("sistema_%Y%m%d_%H%M%S.db")
         print(f"Cópia criada: {bd.copia_seguranca(destino, quem='linha_de_comandos')}")
+        return
+    if a.cmd == "fonte-adicionar":
+        from sistema.recolha import adicionar_fonte
+        print(f"Fonte {adicionar_fonte(bd, a.tipo, a.endereco, a.nome, 'linha_de_comandos', a.max)} acrescentada.")
+        return
+    if a.cmd == "fontes":
+        for f in bd.consultar("SELECT * FROM fontes ORDER BY id_fonte"):
+            print(f"{f['id_fonte']:>3} {'activa  ' if f['activa'] else 'inactiva'} {f['tipo']:<14} {f['nome'][:30]:<30} "
+                  f"{(f['ultimo_estado'] or '')[:60]}")
+        return
+    if a.cmd == "recolher":
+        from sistema.recolha import recolher_fonte, recolher_todas
+        res = [recolher_fonte(bd, cfg, a.fonte, "linha_de_comandos")] if a.fonte else recolher_todas(bd, cfg, "linha_de_comandos")
+        for r in res:
+            print(f"[{r['id_fonte']}] {r['nome']}: {r['estado']}")
+        if not a.sem_classificar and any(r.get("novos") for r in res):
+            print(json.dumps(classificar_pendentes(bd, _clf(cfg), limite=10**9), ensure_ascii=False))
         return
     if a.cmd == "importar":
         print(json.dumps(importar(bd, Path(a.ficheiro), a.plataforma, a.via, cfg.segredo_hash, a.descricao,

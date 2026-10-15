@@ -3,10 +3,13 @@
 Aplicação web do sistema descrito na dissertação *Monitoramento Inteligente de Ameaças em Redes Sociais em Angola*. O modelo BERTimbau afinado classifica publicações públicas em quatro categorias (`Normal`, `Desinformacao`, `Odio`, `Mobilizacao`) e **ordena uma fila de revisão**. O sistema **não toma decisões**: cada analista confirma ou corrige, e tudo fica registado na auditoria.
 
 ```
-ficheiro de recolha (.csv/.jsonl)
-      │  importar (página Lotes): anonimização (Lei 22/11) + registo do lote
-      ▼
-SQLite ──► classificar em segundo plano, gravando de 32 em 32 ──► fila por P(não Normal)
+recolha integrada                         ficheiro (.csv/.jsonl)
+ · YouTube Data API (vídeos, canais)       (Facebook e outras redes
+ · sítios públicos e RSS (robots.txt)       com conta: exportação)
+      │                                          │
+      └──────► anonimização (Lei 22/11) + registo do lote ◄──┘
+                         ▼
+SQLite (dados\sistema.db) ──► classificar em segundo plano, gravando de 32 em 32 ──► fila por P(não Normal)
                                                                     │
                                     cada analista revê a sua fila (pode ser cega)
                                     amostra de controlo de itens Normal
@@ -41,6 +44,10 @@ Copie `uan.env.exemplo` para `uan.env` e preencha. O `uan.env` não vai para o G
 | `UAN_HORAS_SESSAO` | 8 | Duração da sessão na aplicação web |
 | `UAN_MAX_UPLOAD_MB` | 20 | Tamanho máximo do ficheiro importado |
 | `UAN_COOKIE_SEGURO` | 0 | `1` quando o site for servido por HTTPS |
+| `UAN_YOUTUBE_CHAVE` | (vazio) | Chave da YouTube Data API v3 para recolher comentários de vídeos e canais. Vazio = só fontes web |
+| `UAN_RECOLHA_INTERVALO` | 3 | Segundos de espera entre pedidos ao mesmo sítio |
+| `UAN_RECOLHA_MAX_PAGINAS` | 40 | Máximo de páginas visitadas por fonte em cada recolha |
+| `UAN_RECOLHA_AGENTE` | SistemaUAN-Investigacao/1.0 (…) | Identificação enviada aos sítios (User-Agent) |
 
 Uma variável definida com `set` no cmd prevalece sobre o ficheiro.
 
@@ -61,6 +68,7 @@ Por omissão o servidor só aceita ligações do próprio computador. Para outro
 | Panorama | todos | Contagens por categoria, dia, plataforma e lote; nunca por autor |
 | Fila de revisão | todos | Itens sinalizados por prioridade; decisão com os botões ou as teclas `1`–`4`, `J`/`K` para mudar de item, `N` para nota |
 | Amostra de controlo | todos | Itens que o modelo classificou como Normal, sorteados, sempre sem a sugestão do modelo |
+| Fontes e recolha | supervisor | Registar fontes públicas (vídeo ou canal do YouTube, feed RSS, página ou sítio de notícias) e recolher novos dados; cada recolha cria um lote |
 | Lotes | todos (importar: supervisor) | Importar ficheiros, ver a proveniência e classificar pendentes |
 | Métricas | supervisor | Precisão@K, κ analista–sistema, κ entre analistas, sensibilidade com IC 95%, latência; exportar revisões e JSON |
 | Utilizadores | supervisor | Criar, desactivar, redefinir palavra-passe |
@@ -69,7 +77,28 @@ Por omissão o servidor só aceita ligações do próprio computador. Para outro
 
 A API JSON está em `/api` (documentação em `/api/docs`), com o cabeçalho `X-Chave-API`.
 
-## 5. Avaliação com analistas (Secção 3.9 da dissertação)
+## 5. Recolha de novos dados
+
+Além da importação de ficheiros, o sistema recolhe ele próprio de duas origens:
+
+| Tipo de fonte | Endereço | Como recolhe |
+|---|---|---|
+| `youtube_video` | ligação de um vídeo | Comentários e respostas pela YouTube Data API v3 (`UAN_YOUTUBE_CHAVE`) |
+| `youtube_canal` | `https://www.youtube.com/@canal` | Vídeos mais recentes do canal e os respectivos comentários, pela API |
+| `rss` | endereço do feed RSS/Atom | Título e resumo de cada entrada; se o resumo for curto, lê o início do artigo |
+| `pagina` | ligação de um artigo | Título, data e primeiros parágrafos do artigo |
+| `sitio` | página inicial ou secção de um jornal | Segue as ligações para artigos do mesmo sítio e lê cada um |
+
+Na página **Fontes e recolha** (ou `python uan.py fonte-adicionar --tipo sitio --endereco https://exemplo.ao --nome "Jornal"`) regista a fonte; o botão **Recolher** (ou `python uan.py recolher`) recolhe todas as fontes activas, grava um lote por fonte e classifica a seguir. `python uan.py fontes` lista as fontes e o estado da última recolha. Para recolha periódica, agende `python uan.py recolher` no Agendador de Tarefas do Windows.
+
+Regras que o código aplica e que não devem ser contornadas:
+
+- Só conteúdo **público**. Páginas com formulário de palavra-passe, respostas 401/403 e endereços proibidos pelo `robots.txt` são ignorados.
+- Sem contornar protecções: não há rotação de IP, identidades falsas nem resolução de captchas; o sistema identifica-se com `UAN_RECOLHA_AGENTE` e espera `UAN_RECOLHA_INTERVALO` segundos entre pedidos ao mesmo sítio.
+- Redes que exigem conta (Facebook, Instagram, X, TikTok) não são recolhidas automaticamente; o seu conteúdo público entra por importação de ficheiro, de acordo com os termos de cada plataforma.
+- Os textos passam pela mesma anonimização da importação (telefones, e-mails, @menções, pseudónimo do autor) antes de serem gravados.
+
+## 6. Avaliação com analistas (Secção 3.9 da dissertação)
 
 1. Importe um lote **novo**, nunca usado no treino.
 2. Em *Definições*, active a **revisão cega**, para a sugestão do modelo não influenciar a decisão.
@@ -77,7 +106,7 @@ A API JSON está em `/api` (documentação em `/api/docs`), com o cabeçalho `X-
 4. Cada analista revê, sem falar com os outros, os primeiros 50 itens da sua fila e a amostra.
 5. Em *Métricas*, descarregue o JSON. Tem a precisão@K, o κ analista–sistema, o κ entre analistas e a taxa de ameaças na amostra (com IC 95%), que estima o que a fila deixa passar.
 
-## 6. Medir a H2 (latência)
+## 7. Medir a H2 (latência)
 
 ```
 python uan.py medir-latencia dados\lote_latencia.csv --repeticoes 3
@@ -85,10 +114,12 @@ python uan.py medir-latencia dados\lote_latencia.csv --repeticoes 3
 
 Mede importação + anonimização + classificação numa base temporária. A classificação grava de 32 em 32 publicações, por isso o resultado inclui também o tempo até ao primeiro sublote chegar à fila. Nenhuma das medidas inclui o tempo entre a publicação original e a recolha.
 
-## 7. Linha de comandos
+## 8. Linha de comandos
 
 ```
 python uan.py importar dados\comentarios.csv --plataforma YouTube --via api_oficial --descricao "lote 12"
+python uan.py fonte-adicionar --tipo rss --endereco https://exemplo.ao/feed --nome "Jornal"
+python uan.py recolher
 python uan.py classificar
 python uan.py fila --n 20
 python uan.py metricas
@@ -99,7 +130,7 @@ python uan.py copia
 
 Útil para tarefas agendadas no Agendador de Tarefas do Windows (por exemplo, `limpar` e `copia` uma vez por dia).
 
-## 8. Protecção de dados e uso responsável
+## 9. Protecção de dados e uso responsável
 
 - **Minimização.** O ficheiro importado é apagado logo a seguir à leitura. Só ficam o texto mascarado, a plataforma, a data, o contexto público e um pseudónimo do autor.
 - **Pseudónimo com segredo.** HMAC-SHA-256 com `UAN_SEGREDO_HASH`, para não ser revertido por dicionário.
@@ -110,14 +141,14 @@ python uan.py copia
 - **Sem perfis de autores.** Não há vistas nem pesquisas por autor.
 - **Revisão humana obrigatória.** Uma convocatória para manifestação pacífica é exercício de direitos (arts. 40.º e 47.º da Constituição). No teste, a precisão do modelo em `Mobilizacao` foi cerca de 0,51 e, em conteúdo angolano, o F1-macro foi cerca de 0,53.
 
-## 9. Re-treino com as revisões
+## 10. Re-treino com as revisões
 
 *Métricas → Exportar revisões para treino* (ou `python uan.py exportar`) gera um CSV com `origem = revisao_sistema`, uma linha por publicação; os itens em que os analistas discordaram ficam de fora. Estes rótulos vêm de itens **escolhidos pelo modelo**, por isso entram só no treino (`split_and_balance.py --train-only-origem revisao_sistema`) e nunca no teste.
 
-## 10. Guardar o modelo no Colab
+## 11. Guardar o modelo no Colab
 
 No fim da sessão de treino, corra a célula de `colab_guardar_modelo.py`. A pasta gravada no Drive (com `config.json`, pesos e tokenizer) é a que se indica em `UAN_MODELO`.
 
-## 11. Actualizar de uma versão anterior
+## 12. Actualizar de uma versão anterior
 
 A base de dados da versão 0.1 é actualizada automaticamente no primeiro arranque: as revisões existentes passam a ter `origem_fila = fila`. O painel Streamlit (`painel.py`) foi substituído pela aplicação web; `python -m uvicorn api:app` continua a funcionar e arranca a aplicação completa.

@@ -74,18 +74,28 @@ def preparar_registos(brutos: list[dict], plataforma: str, segredo: str) -> list
     return out
 
 
-def importar(bd: BaseDados, caminho: Path, plataforma: str, via: str, segredo: str,
-             descricao: str | None = None, quem: str = "sistema", nome_ficheiro: str | None = None) -> dict:
+def importar_registos(bd: BaseDados, brutos: list[dict], plataforma: str, via: str, segredo: str,
+                      descricao: str | None = None, quem: str = "sistema", origem: str | None = None,
+                      id_fonte: int | None = None) -> dict:
+    """Anonimiza e grava uma lista de registos brutos como um lote novo (ficheiro ou recolha)."""
     if via not in VIAS:
         raise ValueError(f"via deve ser uma de {VIAS}")
-    brutos = ler_ficheiro(caminho)
     registos = preparar_registos(brutos, plataforma, segredo)
-    id_lote = bd.criar_lote(plataforma, via, descricao, nome_ficheiro or Path(caminho).name, quem)
+    id_lote = bd.criar_lote(plataforma, via, descricao, origem, quem, id_fonte)
     novos = bd.inserir_publicacoes(id_lote, registos)
     info = {"id_lote": id_lote, "lidos": len(brutos), "validos": len(registos), "novos": novos}
     bd.auditar(quem, "importacao", {**info, "plataforma": plataforma, "via": via})
     log.info("Lote %s: %s", id_lote, info)
     return info
+
+
+def importar(bd: BaseDados, caminho: Path, plataforma: str, via: str, segredo: str,
+             descricao: str | None = None, quem: str = "sistema", nome_ficheiro: str | None = None) -> dict:
+    if via not in VIAS:
+        raise ValueError(f"via deve ser uma de {VIAS}")
+    brutos = ler_ficheiro(caminho)
+    return importar_registos(bd, brutos, plataforma, via, segredo, descricao, quem,
+                             nome_ficheiro or Path(caminho).name)
 
 
 def prioridade(res: Resultado) -> float:

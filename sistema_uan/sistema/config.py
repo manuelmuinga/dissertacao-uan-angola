@@ -72,6 +72,12 @@ class Config:
     horas_sessao: int = field(default_factory=lambda: int(os.getenv("UAN_HORAS_SESSAO", "8")))
     cookie_seguro: bool = field(default_factory=lambda: _bool("UAN_COOKIE_SEGURO"))
     max_upload_mb: int = field(default_factory=lambda: int(os.getenv("UAN_MAX_UPLOAD_MB", "20")))
+    # Recolha
+    chave_youtube: str = field(default_factory=lambda: os.getenv("UAN_YOUTUBE_CHAVE", ""))
+    recolha_intervalo_s: float = field(default_factory=lambda: float(os.getenv("UAN_RECOLHA_INTERVALO", "3")))
+    recolha_max_paginas: int = field(default_factory=lambda: int(os.getenv("UAN_RECOLHA_MAX_PAGINAS", "40")))
+    recolha_agente: str = field(default_factory=lambda: os.getenv(
+        "UAN_RECOLHA_AGENTE", "SistemaUAN-Investigacao/1.0 (dissertacao de mestrado, Universidade Agostinho Neto)"))
 
 
 def obter_config() -> Config:

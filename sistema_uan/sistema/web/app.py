@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from ..base_dados import BaseDados
 from ..classificador import Classificador, carregar_classificador
 from ..config import NOMES_APRESENTACAO, PAPEIS, ROTULOS, Config, obter_config
+from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, recolher_fonte
 from ..servico import (VIAS, classificacao_em_curso, classificar_pendentes, exportar_revisoes,
                        gerar_amostra_controlo, importar, metricas, panorama)
 from ..utilizadores import (ErroAutenticacao, autenticar, criar_sessao, criar_utilizador, definir_activo,
@@ -55,6 +56,11 @@ AVISOS = {
     "limpeza": ("ok", "Limpeza de conservação concluída."),
     "copia": ("ok", "Cópia de segurança criada na pasta dados\\copias."),
     "saiu": ("ok", "Sessão terminada."),
+    "fonte": ("ok", "Fonte acrescentada."),
+    "fonte_estado": ("ok", "Estado da fonte actualizado."),
+    "fonte_apagada": ("ok", "Fonte apagada. Os lotes já recolhidos mantêm-se."),
+    "recolha": ("ok", "Recolha iniciada em segundo plano. As publicações novas são classificadas no fim."),
+    "recolha_ocupada": ("aviso", "Já há uma recolha em curso."),
 }
 VIAS_NOMES = {
     "api_oficial": "API oficial da plataforma",
@@ -114,7 +120,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     cfg = cfg or obter_config()
     bd = BaseDados(cfg.caminho_bd)
     estado: dict = {"clf": clf, "modelo": "pronto" if clf else "a carregar", "erro_modelo": None,
-                    "progresso": None}
+                    "progresso": None, "recolha": None}
 
     def _carregar():
         try:
@@ -227,7 +233,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                 "modelo_estado": estado["modelo"], "erro_modelo": estado["erro_modelo"],
                 "modelo_nome": estado["clf"].nome if estado["clf"] else None,
                 "modelo_versao": estado["clf"].versao if estado["clf"] else None,
-                "progresso": estado["progresso"], "caminho": request.url.path}
+                "progresso": estado["progresso"], "recolha": estado["recolha"], "caminho": request.url.path}
         if s:
             base["n_fila_meus"] = bd.n_fila(s["utilizador"])
             base["n_amostra_meus"] = len(bd.fila_amostra(s["utilizador"], 10**6))
@@ -455,7 +461,88 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         sessao(request)
         p = estado["progresso"]
         return {"modelo": estado["modelo"], "pendentes": bd.n_pendentes(),
-                "classificacao": None if not p else {"feitos": p["feitos"], "total": p["total"]}}
+                "classificacao": None if not p else {"feitos": p["feitos"], "total": p["total"]},
+                "recolha": estado["recolha"]}
+
+    # ------------------------------------------------------------------ fontes e recolha
+    def _recolher_fundo(ids: list[int], quem: str) -> bool:
+        if estado["recolha"]:
+            return False
+        estado["recolha"] = {"feitas": 0, "total": len(ids), "fonte": ""}
+
+        def tarefa():
+            try:
+                from ..recolha import ClienteHTTP
+                http = ClienteHTTP(cfg.recolha_agente, cfg.recolha_intervalo_s)
+                for i, idf in enumerate(ids):
+                    nome = bd.consultar("SELECT nome FROM fontes WHERE id_fonte = ?", (idf,))
+                    estado["recolha"] = {"feitas": i, "total": len(ids), "fonte": nome[0]["nome"] if nome else ""}
+                    try:
+                        recolher_fonte(bd, cfg, idf, quem, http)
+                    except ErroRecolha:
+                        log.exception("Recolha falhada na fonte %s", idf)
+            finally:
+                estado["recolha"] = None
+            _classificar_fundo(quem)
+
+        if sincrono:
+            tarefa()
+        else:
+            threading.Thread(target=tarefa, name="recolha", daemon=True).start()
+        return True
+
+    @app.get("/fontes", response_class=HTMLResponse)
+    def fontes(request: Request):
+        sessao(request, "supervisor")
+        rows = bd.consultar("""SELECT f.*, (SELECT COUNT(*) FROM lotes l WHERE l.ficheiro = substr(f.endereco, 1, 200)
+                                AND l.descricao LIKE 'recolha automática%') AS recolhas
+                               FROM fontes f ORDER BY f.activa DESC, f.id_fonte""")
+        return pagina(request, "fontes.html", {"fontes": rows, "TIPOS_FONTE": TIPOS_FONTE,
+                                               "tem_youtube": bool(cfg.chave_youtube), "tem_segredo": bool(cfg.segredo_hash),
+                                               "cfg": cfg})
+
+    @app.post("/fontes/adicionar")
+    def fontes_adicionar(request: Request, csrf: str = Form(""), tipo: str = Form(...), endereco: str = Form(...),
+                         nome: str = Form(""), max_itens: int = Form(100)):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        try:
+            adicionar_fonte(bd, tipo, endereco, nome, s["utilizador"], max_itens)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return ir("/fontes", "fonte")
+
+    @app.post("/fontes/{id_fonte}/estado")
+    def fontes_estado(request: Request, id_fonte: int, csrf: str = Form(""), activa: str = Form("0")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        with bd.ligacao() as c:
+            c.execute("UPDATE fontes SET activa = ? WHERE id_fonte = ?", (1 if activa == "1" else 0, id_fonte))
+        bd.auditar(s["utilizador"], "fonte_estado", {"id_fonte": id_fonte, "activa": activa == "1"})
+        return ir("/fontes", "fonte_estado")
+
+    @app.post("/fontes/{id_fonte}/apagar")
+    def fontes_apagar(request: Request, id_fonte: int, csrf: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        with bd.ligacao() as c:
+            c.execute("DELETE FROM fontes WHERE id_fonte = ?", (id_fonte,))
+        bd.auditar(s["utilizador"], "fonte_apagada", {"id_fonte": id_fonte})
+        return ir("/fontes", "fonte_apagada")
+
+    @app.post("/fontes/recolher")
+    def fontes_recolher(request: Request, csrf: str = Form(""), id_fonte: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        if not cfg.segredo_hash:
+            raise HTTPException(500, "Defina UAN_SEGREDO_HASH no ficheiro uan.env antes de recolher.")
+        if id_fonte.isdigit():
+            ids = [int(id_fonte)]
+        else:
+            ids = [r["id_fonte"] for r in bd.consultar("SELECT id_fonte FROM fontes WHERE activa = 1 ORDER BY id_fonte")]
+        if not ids:
+            raise HTTPException(400, "Não há fontes activas.")
+        return ir("/fontes", "recolha" if _recolher_fundo(ids, s["utilizador"]) else "recolha_ocupada")
 
     # ------------------------------------------------------------------ métricas
     @app.get("/metricas", response_class=HTMLResponse)

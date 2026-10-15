@@ -9,6 +9,7 @@ Tabelas:
   publicação–analista, para permitir medir o acordo entre analistas).
 - amostra_controlo: itens classificados como Normal sorteados para estimar a
   sensibilidade (o que a fila não mostra).
+- fontes: canais, vídeos, feeds e sítios públicos de onde o sistema recolhe.
 - utilizadores e sessoes: acesso à aplicação web.
 - definicoes: opções do supervisor (por exemplo, revisão cega).
 - auditoria: registo de acções (quem fez o quê e quando).
@@ -33,7 +34,8 @@ CREATE TABLE IF NOT EXISTS lotes (
     importado_em   TEXT NOT NULL,
     n_recebidos    INTEGER NOT NULL DEFAULT 0,
     n_novos        INTEGER NOT NULL DEFAULT 0,
-    importado_por  TEXT
+    importado_por  TEXT,
+    id_fonte       INTEGER REFERENCES fontes(id_fonte) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS publicacoes (
     id_pub          TEXT PRIMARY KEY,
@@ -93,6 +95,19 @@ CREATE TABLE IF NOT EXISTS sessoes (
     criada_em   TEXT NOT NULL,
     expira_em   TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS fontes (
+    id_fonte       INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo           TEXT NOT NULL,          -- youtube_video | youtube_canal | rss | pagina | sitio
+    endereco       TEXT NOT NULL,
+    nome           TEXT NOT NULL,
+    plataforma     TEXT NOT NULL,
+    max_itens      INTEGER NOT NULL DEFAULT 100,
+    activa         INTEGER NOT NULL DEFAULT 1,
+    criada_em      TEXT NOT NULL,
+    criada_por     TEXT NOT NULL,
+    ultima_recolha TEXT,
+    ultimo_estado  TEXT
+);
 CREATE TABLE IF NOT EXISTS definicoes (
     chave  TEXT PRIMARY KEY,
     valor  TEXT NOT NULL
@@ -138,6 +153,8 @@ def _migrar(c: sqlite3.Connection) -> None:
         """)
     if "importado_por" not in _colunas(c, "lotes"):
         c.execute("ALTER TABLE lotes ADD COLUMN importado_por TEXT")
+    if "id_fonte" not in _colunas(c, "lotes"):
+        c.execute("ALTER TABLE lotes ADD COLUMN id_fonte INTEGER REFERENCES fontes(id_fonte) ON DELETE SET NULL")
 
 
 class BaseDados:
@@ -179,11 +196,12 @@ class BaseDados:
 
     # ---------------- lotes e publicações ----------------
     def criar_lote(self, plataforma: str, via: str, descricao: str | None, ficheiro: str | None,
-                   quem: str | None = None) -> int:
+                   quem: str | None = None, id_fonte: int | None = None) -> int:
         with self.ligacao() as c:
             cur = c.execute(
-                "INSERT INTO lotes(plataforma, via, descricao, ficheiro, importado_em, importado_por) VALUES (?,?,?,?,?,?)",
-                (plataforma, via, descricao, ficheiro, agora(), quem),
+                "INSERT INTO lotes(plataforma, via, descricao, ficheiro, importado_em, importado_por, id_fonte) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (plataforma, via, descricao, ficheiro, agora(), quem, id_fonte),
             )
             return int(cur.lastrowid)
 

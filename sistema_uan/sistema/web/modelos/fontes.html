@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Fontes e recolha{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><h1>Fontes e recolha</h1><p>Canais e vídeos do YouTube, feeds RSS e sítios web públicos de onde o sistema recolhe publicações novas.</p></div>
+  <form method="post" action="/fontes/recolher"><input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <button class="botao" type="submit" {{ 'disabled' if recolha or not fontes or not tem_segredo }}>Recolher todas as fontes activas</button></form>
+</div>
+{% if not tem_segredo %}<div class="faixa perigo">Defina UAN_SEGREDO_HASH no ficheiro uan.env antes de recolher.</div>{% endif %}
+
+<div class="grelha g2">
+  <div class="cartao">
+    <h2>Nova fonte</h2>
+    <form method="post" action="/fontes/adicionar">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <div class="campo"><label for="f-t">Tipo</label><select id="f-t" name="tipo">{% for k, v in TIPOS_FONTE.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+      <div class="campo"><label for="f-e">Endereço</label><input id="f-e" type="text" name="endereco" required placeholder="https://… , @canal ou identificador do vídeo">
+        <div class="ajuda">Feed RSS: endereço do feed. Sítio: página inicial ou de secção (o sistema segue as ligações para artigos do mesmo sítio). Canal: @nome ou identificador UC…</div></div>
+      <div class="linha-form">
+        <div class="campo"><label for="f-n">Nome</label><input id="f-n" type="text" name="nome" maxlength="80" placeholder="ex.: Jornal X, secção política"></div>
+        <div class="campo"><label for="f-m">Máximo por recolha</label><input id="f-m" type="number" name="max_itens" value="100" min="1" max="2000"></div>
+      </div>
+      <button class="botao mt" type="submit">Acrescentar</button>
+    </form>
+  </div>
+  <div class="cartao">
+    <h2>Regras da recolha</h2>
+    <ul class="lista-simples suave">
+      <li>Só conteúdo público. Páginas que pedem autenticação são ignoradas, nunca contornadas.</li>
+      <li>O sistema respeita o robots.txt de cada sítio, identifica-se como «{{ cfg.recolha_agente[:40] }}…» e espera {{ cfg.recolha_intervalo_s|num(0) }} s entre pedidos ao mesmo sítio.</li>
+      <li>Das páginas web guarda o título e os primeiros parágrafos. Comentários carregados por JavaScript (por exemplo, Facebook ou Disqus) não são recolhidos.</li>
+      <li>YouTube: usa a API oficial e precisa de UAN_YOUTUBE_CHAVE {% if tem_youtube %}<span class="pilula forte">configurada</span>{% else %}<span class="pilula">em falta</span>{% endif %}.</li>
+      <li>Cada recolha fica registada como um lote, com a via (API oficial ou página pública), e os autores são anonimizados à entrada.</li>
+    </ul>
+    <p class="ajuda">Para recolher de forma periódica, agende <span class="mono">python uan.py recolher</span> no Agendador de Tarefas do Windows.</p>
+  </div>
+</div>
+
+<div class="cartao seccao">
+  <h2>Fontes</h2>
+  {% if fontes %}
+  <div class="tabela-envolvente"><table class="tabela"><thead><tr><th>Fonte</th><th>Tipo</th><th class="num">Máx.</th><th>Última recolha</th><th>Estado</th><th>Acções</th></tr></thead><tbody>
+  {% for f in fontes %}<tr>
+    <td><b>{{ f.nome }}</b><br><span class="suave mono">{{ f.endereco[:70] }}{% if f.endereco|length > 70 %}…{% endif %}</span></td>
+    <td>{{ TIPOS_FONTE[f.tipo] }}<br><span class="suave">{{ f.plataforma }}</span></td>
+    <td class="num">{{ f.max_itens }}</td>
+    <td>{{ f.ultima_recolha|hora }}</td>
+    <td>{% if not f.activa %}<span class="pilula">inactiva</span>{% endif %} <span class="{{ 'suave' if (f.ultimo_estado or '').startswith('ok') else '' }}">{{ f.ultimo_estado or '—' }}</span></td>
+    <td>
+      <div class="linha-form">
+      <form method="post" action="/fontes/recolher"><input type="hidden" name="csrf" value="{{ sessao.csrf }}"><input type="hidden" name="id_fonte" value="{{ f.id_fonte }}">
+        <button class="botao pequeno secundario" type="submit" {{ 'disabled' if recolha or not tem_segredo }}>Recolher</button></form>
+      <form method="post" action="/fontes/{{ f.id_fonte }}/estado"><input type="hidden" name="csrf" value="{{ sessao.csrf }}"><input type="hidden" name="activa" value="{{ 0 if f.activa else 1 }}">
+        <button class="botao pequeno secundario" type="submit">{{ 'Desactivar' if f.activa else 'Activar' }}</button></form>
+      <form method="post" action="/fontes/{{ f.id_fonte }}/apagar" data-confirmar="Apagar a fonte {{ f.nome }}? Os lotes já recolhidos mantêm-se."><input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+        <button class="botao pequeno perigo" type="submit">Apagar</button></form>
+      </div>
+    </td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="vazio"><b>Ainda não há fontes</b>Acrescente um feed RSS, um sítio público ou um canal do YouTube.</div>{% endif %}
+</div>
+{% endblock %}

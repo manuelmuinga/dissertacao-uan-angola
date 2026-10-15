@@ -26,6 +26,7 @@
       {{ menu_link('/lotes', 'Lotes') }}
       {% if sessao.papel == 'supervisor' %}
       <div class="grupo">Supervisão</div>
+      {{ menu_link('/fontes', 'Fontes e recolha') }}
       {{ menu_link('/metricas', 'Métricas') }}
       {{ menu_link('/utilizadores', 'Utilizadores') }}
       {{ menu_link('/auditoria', 'Auditoria') }}
@@ -52,6 +53,9 @@
       <span data-texto>A classificar: {{ progresso.feitos }} de {{ progresso.total }} publicações.</span>
       <div class="progresso"><i style="width: {{ (100 * progresso.feitos / progresso.total) if progresso.total else 0 }}%"></i></div>
     </div>
+    {% endif %}
+    {% if recolha %}
+    <div class="faixa info" id="estado-recolha">A recolher{% if recolha.fonte %}: {{ recolha.fonte }}{% endif %} ({{ recolha.feitas }} de {{ recolha.total }} fontes concluídas). Pode continuar a trabalhar.</div>
     {% endif %}
     {% if aviso %}<div class="faixa {{ aviso[0] }}" role="status">{{ aviso[1] }}</div>{% endif %}
     {% if erro %}<div class="faixa perigo" role="alert">{{ erro }}</div>{% endif %}

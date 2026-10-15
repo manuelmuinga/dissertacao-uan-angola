@@ -67,6 +67,17 @@
     setTimeout(verificar, 2000);
   }
 
+  // ---------- recolha em segundo plano ----------
+  if (document.getElementById("estado-recolha")) {
+    var verRecolha = function () {
+      fetch("/estado", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && !d.recolha) window.location.reload(); else setTimeout(verRecolha, 4000); })
+        .catch(function () { setTimeout(verRecolha, 6000); });
+    };
+    setTimeout(verRecolha, 4000);
+  }
+
   // ---------- modelo a carregar ----------
   var carregar = document.getElementById("modelo-a-carregar");
   if (carregar) {
