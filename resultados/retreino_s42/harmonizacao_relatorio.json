@@ -1,0 +1,49 @@
+{
+  "total_antes_dedup": 27097,
+  "total_apos_dedup": 26859,
+  "duplicados_removidos": 238,
+  "por_fonte": {
+    "ToLD-BR": 12709,
+    "Fake.br": 7199,
+    "HateBR": 4378,
+    "Piloto_Angola": 2573
+  },
+  "por_categoria": {
+    "Normal": 19090,
+    "Desinformacao": 3917,
+    "Odio": 3493,
+    "Mobilizacao": 359
+  },
+  "por_origem": {
+    "publico": 24286,
+    "ate_v11": 2288,
+    "enriquecido_video_tema": 194,
+    "enriquecido_lexico": 91
+  },
+  "por_fonte_e_categoria": {
+    "Fake.br": {
+      "Desinformacao": 3599,
+      "Mobilizacao": 0,
+      "Normal": 3600,
+      "Odio": 0
+    },
+    "HateBR": {
+      "Desinformacao": 0,
+      "Mobilizacao": 0,
+      "Normal": 2195,
+      "Odio": 2183
+    },
+    "Piloto_Angola": {
+      "Desinformacao": 318,
+      "Mobilizacao": 359,
+      "Normal": 1613,
+      "Odio": 283
+    },
+    "ToLD-BR": {
+      "Desinformacao": 0,
+      "Mobilizacao": 0,
+      "Normal": 11682,
+      "Odio": 1027
+    }
+  }
+}

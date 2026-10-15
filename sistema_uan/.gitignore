@@ -1,0 +1,8 @@
+dados/*.db
+dados/*.db-*
+dados/*.csv
+__pycache__/
+.pytest_cache/
+.env
+uan.env
+dados/copias/

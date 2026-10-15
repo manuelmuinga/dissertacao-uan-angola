@@ -1,0 +1,3 @@
+{"data": "2026-10-12", "versao_sistema": "1.0 (aplicação web, gravação por sublotes)", "equipamento": "Intel N100, 8 GB RAM, CPU; aplicação web a correr em simultâneo",
+ "comando": "python uan.py medir-latencia lote_latencia.csv --repeticoes 3",
+ "resultado": {"modelo": "BERTimbau", "itens": 198, "repeticoes": 3, "sublote": 32, "segundos_total_mediana": 139.667, "ms_por_item_mediana": 705.39, "segundos_ate_primeiro_sublote_na_fila_mediana": 36.052}}

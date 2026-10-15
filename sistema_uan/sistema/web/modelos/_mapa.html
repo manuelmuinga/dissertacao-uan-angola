@@ -1,0 +1,27 @@
+{# Mapa coroplético das 18 províncias (divisão anterior a 2025). `m` vem de alertas.dados_mapa. #}
+{% macro mapa_svg(m, geo, rotulo_valor='ameaças confirmadas') -%}
+<svg class="grafico mapa" viewBox="0 0 {{ geo.largura }} {{ geo.altura }}" role="img"
+     aria-label="Mapa de Angola por província: {{ rotulo_valor }} sobre publicações que mencionam cada província">
+  <defs>
+    <pattern id="insuficiente" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" fill="#f3f4f1"></rect><line x1="0" y1="0" x2="0" y2="7" stroke="#c6ccc3" stroke-width="2"></line>
+    </pattern>
+  </defs>
+  {% for l in m.provincias %}
+  <a href="/mapa?{{ 'de=' ~ m.periodo.inicio ~ '&ate=' ~ m.periodo.fim ~ '&modo=' ~ m.modo }}#prov-{{ l.codigo }}" aria-label="{{ l.nome }}">
+  <path d="{{ l.d_svg }}" fill="{{ l.cor }}" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round">
+    <title>{{ l.nome }}: {{ l.valor }} {{ rotulo_valor }} em {{ l.mencoes }} publicações que a mencionam{% if l.taxa is not none %} ({{ l.taxa|pct(1) }}){% else %} (dados insuficientes){% endif %}. Período anterior: {{ l.valor_antes }}.</title>
+  </path></a>
+  {% endfor %}
+  {% for l in m.provincias %}{% if l.mencoes %}
+  <text x="{{ l.cx }}" y="{{ l.cy }}" text-anchor="middle" class="mapa-nome">{{ l.codigo }}</text>
+  {% if l.variacao %}<text x="{{ l.cx }}" y="{{ l.cy + 15 }}" text-anchor="middle" class="mapa-var {{ 'sobe' if l.variacao > 0 else 'desce' }}">{{ '▲ +' if l.variacao > 0 else '▼ −' }}{{ l.variacao|abs }}</text>{% endif %}
+  {% endif %}{% endfor %}
+</svg>
+<div class="legenda mapa-legenda">
+  <span class="escala"><span>0%</span><i></i><span>{{ m.max_taxa|pct(1) }}</span></span>
+  <span><i class="amostra-cor" style="background:#eceee9"></i>sem publicações</span>
+  <span><i class="amostra-cor tracejado"></i>menos de {{ m.min_casos }} publicações (taxa não calculada)</span>
+  <span><b class="sobe">▲</b>/<b class="desce">▼</b> variação face ao período anterior</span>
+</div>
+{%- endmacro %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Lotes{% endblock %}
+{% block conteudo %}
+<div class="cabecalho"><div><h1>Lotes</h1><p>Cada importação fica registada com a plataforma, a via de recolha, a data e o volume, para a secção de metodologia.</p></div></div>
+
+{% if sessao.papel == 'supervisor' %}
+<div class="grelha g2">
+  <div class="cartao">
+    <h2>Importar um ficheiro</h2>
+    {% if not tem_segredo %}<div class="faixa perigo">Defina UAN_SEGREDO_HASH no ficheiro uan.env antes de importar. Sem esse segredo, os pseudónimos dos autores podiam ser revertidos.</div>{% endif %}
+    <form method="post" action="/lotes/importar" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <div class="campo"><label for="l-f">Ficheiro (.csv, .jsonl ou .json, até {{ max_mb }} MB)</label><input id="l-f" type="file" name="ficheiro" accept=".csv,.jsonl,.json" required>
+        <div class="ajuda">Colunas reconhecidas: texto, autor, id, data e contexto (aceita os nomes do recolhedor do YouTube).</div></div>
+      <div class="linha-form">
+        <div class="campo"><label for="l-p">Plataforma</label><input id="l-p" type="text" name="plataforma" value="YouTube" maxlength="40" required></div>
+        <div class="campo"><label for="l-v">Via de recolha</label><select id="l-v" name="via">{% for v in VIAS %}<option value="{{ v }}">{{ VIAS_NOMES[v] }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="campo mt"><label for="l-d">Descrição</label><input id="l-d" type="text" name="descricao" maxlength="300" placeholder="ex.: comentários públicos de 12 vídeos, 10/10/2026"></div>
+      <button class="botao" type="submit" {{ 'disabled' if not tem_segredo }}>Importar e classificar</button>
+    </form>
+  </div>
+  <div class="cartao">
+    <h2>Classificação</h2>
+    <p>{% if pendentes %}<b>{{ pendentes|num }}</b> publicações à espera de classificação.{% else %}Todas as publicações estão classificadas.{% endif %}</p>
+    <form method="post" action="/classificar"><input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <button class="botao secundario" type="submit" {{ 'disabled' if not pendentes or progresso }}>Classificar pendentes</button></form>
+    <p class="ajuda mt">A classificação corre em segundo plano e grava os resultados de 32 em 32 publicações, para que as primeiras cheguem à fila sem esperar pelo lote inteiro.</p>
+    <h3 class="mt">Protecção de dados na importação</h3>
+    <ul class="lista-simples suave">
+      <li>O ficheiro original é apagado logo a seguir à leitura.</li>
+      <li>Endereços web, e-mails, telefones e menções a utilizadores são mascarados.</li>
+      <li>O autor passa a pseudónimo HMAC-SHA-256 com segredo.</li>
+      <li>Nomes de pessoas escritos no texto não são detectados: sinalize-os na nota.</li>
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao seccao">
+  <h2>Lotes importados</h2>
+  {% if lotes %}
+  <div class="tabela-envolvente"><table class="tabela"><thead><tr>
+    <th>Lote</th><th>Plataforma e via</th><th>Descrição</th><th class="num">Recebidas</th><th class="num">Novas</th><th class="num">Classificadas</th><th class="num">Sinalizadas</th><th class="num">Revistas</th><th>Importado</th></tr></thead><tbody>
+  {% for l in lotes %}<tr>
+    <td><a href="/fila?lote={{ l.id_lote }}">#{{ l.id_lote }}</a></td>
+    <td>{{ l.plataforma }}<br><span class="suave">{{ VIAS_NOMES[l.via] }}</span></td>
+    <td>{{ l.descricao or '' }}{% if l.ficheiro %}<br><span class="suave mono">{{ l.ficheiro }}</span>{% endif %}</td>
+    <td class="num">{{ l.n_recebidos|num }}</td><td class="num">{{ l.n_novos|num }}</td>
+    <td class="num">{{ l.classificadas|num }}</td><td class="num">{{ l.sinalizadas|num }}</td><td class="num">{{ l.revistas|num }}</td>
+    <td>{{ l.importado_em|hora }}<br><span class="suave">{{ l.importado_por or '' }}</span></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="vazio"><b>Ainda não há lotes</b>{% if sessao.papel == 'supervisor' %}Importe o primeiro ficheiro acima.{% else %}O supervisor importa os lotes.{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

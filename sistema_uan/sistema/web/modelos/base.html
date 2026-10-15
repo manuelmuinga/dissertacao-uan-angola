@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Triagem{% endblock %} · Sistema UAN</title>
+<link rel="stylesheet" href="/estatico/estilo.css">
+<link rel="icon" href="/estatico/icone.svg" type="image/svg+xml">
+</head>
+<body>
+{% macro menu_link(url, texto, contador=None) -%}
+<a href="{{ url }}" class="{{ 'activo' if (caminho == url or (url != '/' and caminho.startswith(url))) }}">
+  <span>{{ texto }}</span>{% if contador %}<span class="contador">{{ contador|num }}</span>{% endif %}
+</a>
+{%- endmacro %}
+<div class="estrutura">
+  <aside class="lateral">
+    <a class="marca" href="/">
+      <span class="marca-sinal">UAN</span>
+      <span><b>Triagem de ameaças</b><span>Apoio ao analista</span></span>
+    </a>
+    <nav class="menu" aria-label="Navegação principal">
+      {{ menu_link('/', 'Panorama') }}
+      {{ menu_link('/fila', 'Fila de revisão', n_fila_meus) }}
+      {{ menu_link('/amostra', 'Amostra de controlo', n_amostra_meus) }}
+      {{ menu_link('/alertas', 'Alertas', n_alertas_novos) }}
+      {{ menu_link('/mapa', 'Mapa') }}
+      {{ menu_link('/relatorio', 'Relatório') }}
+      {{ menu_link('/lotes', 'Lotes') }}
+      {% if sessao.papel == 'supervisor' %}
+      <div class="grupo">Supervisão</div>
+      {{ menu_link('/fontes', 'Fontes e recolha') }}
+      {{ menu_link('/metricas', 'Métricas') }}
+      {{ menu_link('/utilizadores', 'Utilizadores') }}
+      {{ menu_link('/auditoria', 'Auditoria') }}
+      {{ menu_link('/definicoes', 'Definições') }}
+      {% endif %}
+    </nav>
+    <div class="lateral-pe">
+      <div><b>{{ sessao.nome }}</b> · {{ sessao.papel }}</div>
+      <div><a href="/conta" class="suave" style="color:#93a4b5">A minha conta</a></div>
+      <form method="post" action="/sair"><input type="hidden" name="csrf" value="{{ sessao.csrf }}"><button type="submit">Sair</button></form>
+      <div class="mt" style="font-size:11.5px">Modelo: {{ modelo_nome or '—' }}{% if modelo_versao %}<br><span class="mono">{{ modelo_versao }}</span>{% endif %}</div>
+    </div>
+  </aside>
+  <main class="principal">
+    {% if modelo_estado == 'a carregar' %}
+    <div class="faixa info" id="modelo-a-carregar">O modelo está a carregar. A navegação funciona; a classificação começa quando terminar (cerca de 20 segundos).</div>
+    {% elif modelo_estado == 'erro' %}
+    <div class="faixa perigo">Não foi possível carregar o modelo: {{ erro_modelo }}. Confirme UAN_MODELO no ficheiro uan.env.</div>
+    {% elif modelo_nome == 'DEMONSTRACAO' %}
+    <div class="faixa perigo"><b>Classificador de demonstração.</b> As sugestões vêm de palavras-chave, não do BERTimbau. Defina UAN_MODELO no ficheiro uan.env.</div>
+    {% endif %}
+    {% if progresso %}
+    <div class="faixa info" id="estado-classificacao">
+      <span data-texto>A classificar: {{ progresso.feitos }} de {{ progresso.total }} publicações.</span>
+      <div class="progresso"><i style="width: {{ (100 * progresso.feitos / progresso.total) if progresso.total else 0 }}%"></i></div>
+    </div>
+    {% endif %}
+    {% if recolha %}
+    <div class="faixa info" id="estado-recolha">A recolher{% if recolha.fonte %}: {{ recolha.fonte }}{% endif %} ({{ recolha.feitas }} de {{ recolha.total }} fontes concluídas). Pode continuar a trabalhar.</div>
+    {% endif %}
+    {% if aviso %}<div class="faixa {{ aviso[0] }}" role="status">{{ aviso[1] }}</div>{% endif %}
+    {% if erro %}<div class="faixa perigo" role="alert">{{ erro }}</div>{% endif %}
+    {% block conteudo %}{% endblock %}
+  </main>
+</div>
+<script src="/estatico/app.js"></script>
+</body>
+</html>

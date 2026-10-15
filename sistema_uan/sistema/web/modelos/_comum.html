@@ -1,0 +1,9 @@
+{% macro cat(c) -%}<span class="cat cat-{{ c }}">{{ NOMES[c] }}</span>{%- endmacro %}
+{% set CORES = {'Normal': 'var(--c-normal)', 'Desinformacao': 'var(--c-desinformacao)', 'Odio': 'var(--c-odio)', 'Mobilizacao': 'var(--c-mobilizacao)'} %}
+{% macro barras_prob(probs) -%}
+<div class="barras">
+{% for c in ROTULOS %}{% set v = probs.get(c, 0) %}
+  <div class="barra"><span>{{ NOMES[c] }}</span><span class="barra-trilho"><i style="width: {{ (100 * v)|round(1) }}%; background: {{ CORES[c] }}"></i></span><span class="v">{{ v|pct }}</span></div>
+{% endfor %}
+</div>
+{%- endmacro %}
