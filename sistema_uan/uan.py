@@ -43,18 +43,36 @@ def _clf(cfg):
 
 
 def _apagar_base(caminho: Path) -> bool:
-    """Apaga a base SQLite e os ficheiros -wal/-shm; no Windows, espera um pouco se estiverem a ser libertados."""
+    """Recria a base de demonstração do zero.
+
+    Tenta apagar o ficheiro; se o Windows não deixar (ficheiro aberto por outro processo), esvazia
+    todas as tabelas por dentro, o que tem o mesmo efeito: a demonstração volta a ser criada.
+    """
     import gc
+    import sqlite3
     import time
     gc.collect()
-    for tentativa in range(5):
+    for tentativa in range(3):
         try:
             for sufixo in ("", "-wal", "-shm"):
                 Path(str(caminho) + sufixo).unlink(missing_ok=True)
             return True
         except PermissionError:
             time.sleep(0.5 * (tentativa + 1))
-    return False
+    c = None
+    try:
+        c = sqlite3.connect(caminho, timeout=30)
+        c.execute("PRAGMA foreign_keys = OFF")
+        tabelas = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")]
+        for t in tabelas:
+            c.execute(f'DELETE FROM "{t}"')
+        c.commit()
+        return True
+    except sqlite3.Error:
+        return False
+    finally:
+        if c is not None:
+            c.close()
 
 
 def servir(a, cfg) -> None:
