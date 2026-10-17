@@ -42,6 +42,21 @@ def _clf(cfg):
                                   tamanho_lote=cfg.tamanho_lote, dispositivo=cfg.dispositivo)
 
 
+def _apagar_base(caminho: Path) -> bool:
+    """Apaga a base SQLite e os ficheiros -wal/-shm; no Windows, espera um pouco se estiverem a ser libertados."""
+    import gc
+    import time
+    gc.collect()
+    for tentativa in range(5):
+        try:
+            for sufixo in ("", "-wal", "-shm"):
+                Path(str(caminho) + sufixo).unlink(missing_ok=True)
+            return True
+        except PermissionError:
+            time.sleep(0.5 * (tentativa + 1))
+    return False
+
+
 def servir(a, cfg) -> None:
     """Arranca o servidor web num ciclo: a troca de modo pedida na aplicação reinicia-o com a outra base de dados."""
     import uvicorn
@@ -63,9 +78,10 @@ def servir(a, cfg) -> None:
                 if not repor and precisa_recriar(bd_demo):
                     print("Os dados fictícios foram melhorados nesta versão: a base de demonstração vai ser recriada.")
                     repor = True
-                if repor:
-                    for sufixo in ("", "-wal", "-shm"):
-                        Path(str(bd_demo) + sufixo).unlink(missing_ok=True)
+                if repor and not _apagar_base(bd_demo):
+                    print("\nNão foi possível recriar a base de demonstração: o ficheiro está aberto noutro programa.\n"
+                          "Feche outras janelas onde o sistema esteja a correr (ou programas que tenham aberto\n"
+                          f"{bd_demo}) e arranque de novo. Por agora continua com os dados fictícios anteriores.\n")
                 os.environ.update(UAN_DEMONSTRACAO="1", UAN_BD=str(bd_demo))
                 os.environ.pop("UAN_MODELO", None)
                 os.environ.setdefault("UAN_SEGREDO_HASH", "demonstracao")

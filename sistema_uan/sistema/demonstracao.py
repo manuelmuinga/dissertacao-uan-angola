@@ -40,11 +40,16 @@ def precisa_recriar(caminho: Path) -> bool:
     import sqlite3
     if not Path(caminho).exists():
         return False
+    c = None
     try:
-        with sqlite3.connect(caminho) as c:
-            v = c.execute("SELECT valor FROM definicoes WHERE chave = 'demonstracao_versao'").fetchone()
+        # «with sqlite3.connect» não fecha a ligação; no Windows o ficheiro ficaria bloqueado e não se podia apagar
+        c = sqlite3.connect(caminho)
+        v = c.execute("SELECT valor FROM definicoes WHERE chave = 'demonstracao_versao'").fetchone()
     except sqlite3.Error:
         return True
+    finally:
+        if c is not None:
+            c.close()
     return not v or v[0] != VERSAO_DADOS
 
 # Taxa de acerto do classificador simulado por categoria (próxima do que o modelo faz em conteúdo
