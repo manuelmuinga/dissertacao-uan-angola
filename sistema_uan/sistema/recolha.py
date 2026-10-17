@@ -405,7 +405,10 @@ class ClienteYouTube:
     def _api(self, recurso: str, **params) -> dict:
         params["key"] = self.chave
         url = self.BASE + recurso + "?" + urllib.parse.urlencode(params)
-        r = self.http.obter(url, verificar_robots=False)  # API oficial, não é uma página web
+        try:
+            r = self.http.obter(url, verificar_robots=False)  # API oficial, não é uma página web
+        except ErroRecolha as e:  # a chave vai no endereço: nunca a mostrar no estado da fonte nem na auditoria
+            raise ErroRecolha(str(e).replace(self.chave, "***")) from None
         return json.loads(r.texto())
 
     def videos_do_canal(self, canal: str, n: int) -> list[dict]:

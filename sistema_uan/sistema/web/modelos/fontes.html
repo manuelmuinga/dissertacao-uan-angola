@@ -42,8 +42,30 @@ manifestação Luanda taxistas"></textarea>
       <li>YouTube: usa a API oficial e precisa de UAN_YOUTUBE_CHAVE {% if tem_youtube %}<span class="pilula forte">configurada</span>{% else %}<span class="pilula">em falta</span>{% endif %}.</li>
       <li>Cada recolha fica registada como um lote, com a via (API oficial ou página pública), e os autores são anonimizados à entrada.</li>
     </ul>
-    <p class="ajuda">Para recolher de forma periódica, agende <span class="mono">python uan.py recolher</span> no Agendador de Tarefas do Windows.</p>
   </div>
+</div>
+
+<div class="cartao seccao" id="recolha-automatica">
+  <h2>Recolha automática</h2>
+  {% if not auto.disponivel %}
+  <p class="suave">Na demonstração não há recolha: os dados são fictícios. Passe para o sistema real para a ligar.</p>
+  {% else %}
+  <p class="suave">Enquanto o servidor estiver a correr, o sistema percorre sozinho todas as fontes activas: os vídeos e canais do YouTube (vídeos novos e comentários novos), os feeds e as páginas web. Só entra o que ainda não existe; cada volta fica registada como lotes, e as publicações novas são classificadas e vão para a fila.</p>
+  <form method="post" action="/fontes/automatica" class="linha-form">
+    <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <div class="campo"><label for="a-m">Frequência</label>
+      <select id="a-m" name="minutos">{% for m, t in INTERVALOS_AUTO.items() %}<option value="{{ m }}" {{ 'selected' if m == auto.minutos }}>{{ t }}</option>{% endfor %}</select></div>
+    <button class="botao" type="submit">Gravar</button>
+  </form>
+  <dl class="ficha mt">
+    <dt>Estado</dt><dd>{% if auto.minutos and auto.tem_segredo %}<span class="pilula forte">ligada</span> {{ INTERVALOS_AUTO[auto.minutos]|lower }}, {{ auto.n_activas }} fonte(s) activa(s){% elif auto.minutos %}<span class="pilula aviso">parada</span> falta UAN_SEGREDO_HASH{% else %}<span class="pilula">desligada</span>{% endif %}</dd>
+    <dt>Última volta</dt><dd>{{ auto.ultima.isoformat()|hora if auto.ultima else '—' }}</dd>
+    {% if auto.minutos %}<dt>Próxima volta</dt><dd>{{ auto.proxima.isoformat()|hora if auto.ultima else 'dentro de meio minuto' }}{% if recolha %} (há uma recolha em curso){% endif %}</dd>{% endif %}
+    <dt>Quota do YouTube</dt><dd>cerca de {{ auto.unidades_recolha|num }} unidades por volta{% if auto.minutos %}, {{ auto.unidades_dia|num }} por dia{% endif %} (o limite habitual é {{ 10000|num }} por dia)</dd>
+  </dl>
+  {% if auto.unidades_dia > 8000 %}<div class="faixa aviso mt">Com esta frequência a quota diária do YouTube pode esgotar-se, sobretudo por causa das pesquisas (cerca de 110 unidades cada). Escolha um intervalo maior ou desactive algumas pesquisas.</div>{% endif %}
+  <p class="ajuda">A recolha automática só corre com o servidor aberto (<span class="mono">python uan.py servir</span>) e o computador ligado. Para recolher mesmo com o servidor fechado, agende <span class="mono">python uan.py recolher</span> no Agendador de Tarefas do Windows.</p>
+  {% endif %}
 </div>
 
 <div class="cartao seccao">

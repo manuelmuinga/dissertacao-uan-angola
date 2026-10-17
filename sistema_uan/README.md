@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Os testes (112) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
+Os testes (118) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
 
 ## 2. Configuração: ficheiro `uan.env`
 
@@ -116,6 +116,8 @@ A API JSON está em `/api` (documentação em `/api/docs`), com o cabeçalho `X-
 ## 5. Recolha de novos dados
 
 Além da importação de ficheiros, o sistema recolhe ele próprio do YouTube e de sítios web públicos. Pode acrescentar **várias fontes de uma vez**: cole os endereços, um por linha, e o tipo de cada um é detectado automaticamente (a página mostra-o antes de gravar). Uma linha de texto livre passa a ser uma pesquisa no YouTube; linhas repetidas ou já registadas são ignoradas.
+
+**Recolha automática.** Em *Fontes e recolha → Recolha automática*, o supervisor escolhe a frequência (de 15 em 15 minutos até uma vez por dia). Enquanto o servidor estiver a correr, o sistema percorre sozinho todas as fontes activas: vídeos novos dos canais, listas e pesquisas, comentários novos nos vídeos, artigos novos dos feeds e das páginas. Só entra o que ainda não existe na base de dados. Cada volta fica registada como lotes e na auditoria (`recolha_automatica`), e as publicações novas são classificadas e vão para a fila. A página mostra a última e a próxima volta e uma estimativa da quota diária do YouTube, com um aviso quando a frequência a pode esgotar (cada pesquisa gasta cerca de 110 unidades por volta; o limite habitual é 10 000 por dia). Na demonstração não há recolha. Com o servidor fechado, use o Agendador de Tarefas do Windows com `python uan.py recolher`.
 
 | Tipo de fonte | Endereço | Como recolhe |
 |---|---|---|

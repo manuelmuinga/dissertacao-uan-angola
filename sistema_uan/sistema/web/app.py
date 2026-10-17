@@ -68,6 +68,7 @@ AVISOS = {
     "fonte_apagada": ("ok", "Fonte apagada. Os lotes já recolhidos mantêm-se."),
     "recolha": ("ok", "Recolha iniciada em segundo plano. As publicações novas são classificadas no fim."),
     "recolha_ocupada": ("aviso", "Já há uma recolha em curso."),
+    "recolha_auto": ("ok", "Recolha automática actualizada."),
     "alertas_vistos": ("ok", "Alertas marcados como vistos."),
     "alertas_def": ("ok", "Definições dos alertas gravadas."),
     "email_teste": ("ok", "E-mail de teste enviado. Confirme a caixa de entrada dos destinatários."),
@@ -102,6 +103,19 @@ class PedidoRevisao(BaseModel):
 class PrecisaEntrar(Exception):
     def __init__(self, seguinte: str = "/"):
         self.seguinte = seguinte
+
+
+# Intervalos da recolha automática (minutos → texto)
+INTERVALOS_AUTO = {0: "Desligada", 15: "De 15 em 15 minutos", 30: "De 30 em 30 minutos", 60: "De hora a hora",
+                   180: "De 3 em 3 horas", 360: "De 6 em 6 horas", 720: "De 12 em 12 horas", 1440: "Uma vez por dia"}
+QUOTA_YOUTUBE_DIA = 10_000  # quota diária habitual de um projecto novo na YouTube Data API v3
+
+
+def _unidades_youtube(tipo: str, max_itens: int) -> int:
+    """Estimativa das unidades da quota do YouTube gastas por uma recolha desta fonte."""
+    paginas = max(1, -(-int(max_itens or 100) // 100))
+    return {"youtube_video": paginas, "youtube_canal": 2 + 10, "youtube_lista": 1 + 10,
+            "youtube_pesquisa": 100 + 10}.get(tipo, 0)
 
 
 class PrecisaMudarSenha(Exception):
@@ -786,6 +800,75 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             threading.Thread(target=tarefa, name="recolha", daemon=True).start()
         return True
 
+    # ------------------------------------------------------------------ recolha automática (periódica)
+    def _auto_config() -> dict:
+        try:
+            minutos = int(bd.definicao("recolha_auto_minutos", "0") or 0)
+        except ValueError:
+            minutos = 0
+        minutos = minutos if minutos in INTERVALOS_AUTO else 0
+        ultima_txt = bd.definicao("recolha_auto_ultima", "")
+        try:
+            ultima = datetime.fromisoformat(ultima_txt) if ultima_txt else None
+        except ValueError:
+            ultima = None
+        proxima = (ultima + timedelta(minutes=minutos)) if minutos and ultima else None  # None: corre já
+        activas = bd.consultar("SELECT tipo, max_itens FROM fontes WHERE activa = 1")
+        unidades = sum(_unidades_youtube(r["tipo"], r["max_itens"]) for r in activas)
+        por_dia = unidades * (1440 // minutos) if minutos else 0
+        return {"minutos": minutos, "ultima": ultima, "proxima": proxima, "n_activas": len(activas),
+                "unidades_recolha": unidades, "unidades_dia": por_dia,
+                "disponivel": not cfg.demonstracao, "tem_segredo": bool(cfg.segredo_hash)}
+
+    def _agendador_tick(agora_dt: datetime | None = None) -> bool:
+        """Chamado de 30 em 30 s pelo servidor: arranca a recolha quando chega a hora. True se arrancou."""
+        if cfg.demonstracao or not cfg.segredo_hash:
+            return False
+        a = _auto_config()
+        agora_dt = agora_dt or datetime.now(timezone.utc)
+        if not a["minutos"] or (a["proxima"] and agora_dt < a["proxima"]):
+            return False
+        ids = [r["id_fonte"] for r in bd.consultar("SELECT id_fonte FROM fontes WHERE activa = 1 ORDER BY id_fonte")]
+        if not ids or estado["recolha"] or estado["progresso"]:
+            return False  # tenta de novo no próximo ciclo
+        with bd.ligacao() as c:  # sem passar por definir(): não enche a auditoria com a hora de cada ciclo
+            c.execute("INSERT OR REPLACE INTO definicoes(chave, valor) VALUES ('recolha_auto_ultima', ?)",
+                      (agora_dt.isoformat(),))
+        bd.auditar("recolha_automatica", "recolha_automatica_iniciada", {"fontes": len(ids)})
+        return _recolher_fundo(ids, "recolha_automatica")
+
+    parar_agendador = threading.Event()
+
+    def _ciclo_agendador():
+        while not parar_agendador.wait(30):
+            try:
+                _agendador_tick()
+            except Exception:  # um erro numa volta não pára as seguintes
+                log.exception("Falha no agendador da recolha automática")
+
+    def _iniciar_agendador():
+        if not sincrono and not cfg.demonstracao:
+            parar_agendador.clear()
+            threading.Thread(target=_ciclo_agendador, name="agendador-recolha", daemon=True).start()
+
+    app.router.on_startup.append(_iniciar_agendador)
+    app.router.on_shutdown.append(parar_agendador.set)  # ao parar ou mudar de modo, o ciclo termina
+
+    @app.post("/fontes/automatica")
+    def fontes_automatica(request: Request, csrf: str = Form(""), minutos: int = Form(0)):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        if minutos not in INTERVALOS_AUTO:
+            raise HTTPException(400, "Intervalo inválido.")
+        if cfg.demonstracao and minutos:
+            raise HTTPException(400, "Na demonstração não há recolha: os dados são fictícios.")
+        antes = _auto_config()["minutos"]
+        bd.definir("recolha_auto_minutos", str(minutos), s["utilizador"])
+        if minutos and not antes:  # ao ligar, a primeira recolha corre dentro de meio minuto
+            with bd.ligacao() as c:
+                c.execute("DELETE FROM definicoes WHERE chave = 'recolha_auto_ultima'")
+        return ir("/fontes", "recolha_auto")
+
     @app.get("/fontes", response_class=HTMLResponse)
     def fontes(request: Request):
         sessao(request, "supervisor")
@@ -795,7 +878,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         return pagina(request, "fontes.html", {"fontes": rows, "TIPOS_FONTE": TIPOS_FONTE,
                                                "resultado": request.query_params.get("resultado", "")[:400],
                                                "tem_youtube": bool(cfg.chave_youtube), "tem_segredo": bool(cfg.segredo_hash),
-                                               "cfg": cfg})
+                                               "cfg": cfg, "auto": _auto_config(), "INTERVALOS_AUTO": INTERVALOS_AUTO})
 
     @app.post("/fontes/adicionar")
     def fontes_adicionar(request: Request, csrf: str = Form(""), tipo: str = Form("auto"), endereco: str = Form(""),
@@ -1269,5 +1352,6 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     app.router.on_startup.append(_pronto)
     app.state.bd = bd
     app.state.estado = estado
+    app.state.agendador_tick = _agendador_tick
     app.state.smtp_testes = smtp_testes
     return app
