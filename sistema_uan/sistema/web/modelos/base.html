@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt"{% if tema %} data-tema="{{ tema }}"{% endif %}>
+<html lang="pt"{% if tema %} data-tema="{{ tema }}"{% endif %}{% for k in ('cor', 'menu', 'cantos', 'movimento') %}{% if aspecto[k] != ASPECTO[k][0] %} data-{{ k }}="{{ aspecto[k] }}"{% endif %}{% endfor %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/estatico/estilo.css">
 <link rel="icon" href="/estatico/icone.svg" type="image/svg+xml">
 </head>
-<body{% if sessao and visita_pendente and not request.query_params.get('parcial') %} data-visita-auto{% endif %}{% if demonstracao %} class="modo-demo"{% endif %}>
+<body data-modo="{{ 'demonstracao' if demonstracao else 'real' }}" data-papel="{{ sessao.papel if sessao else '' }}" data-troca="{{ '1' if troca_disponivel else '' }}"{% if sessao and visita_pendente and not request.query_params.get('parcial') %} data-visita-auto{% endif %}{% if demonstracao %} class="modo-demo"{% endif %}>
 <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
   <symbol id="i-panorama" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="15" width="7.5" height="6" rx="1.5"/></symbol>
   <symbol id="i-fila" viewBox="0 0 24 24"><path d="M3 13h5l1.5 2.5h5L16 13h5"/><path d="M5.5 5h13L21 13v5.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5V13z"/></symbol>
@@ -57,18 +57,23 @@
       {{ menu_link('/metricas', 'Métricas', icone='metricas') }}
       {{ menu_link('/utilizadores', 'Utilizadores', icone='utilizadores') }}
       {{ menu_link('/auditoria', 'Auditoria', icone='auditoria') }}
-      {{ menu_link('/definicoes', 'Definições', icone='definicoes') }}
       {% endif %}
+      <div class="grupo">Sistema</div>
+      {{ menu_link('/definicoes', 'Definições e aspecto', icone='definicoes') }}
     </nav>
     <div class="lateral-pe">
       <div><b>{{ sessao.nome }}</b> · {{ sessao.papel }}</div>
       <div><a href="/conta" class="suave" style="color:#93a4b5">A minha conta</a> · <button type="button" class="ligacao-lateral" data-visita-iniciar>Visita guiada</button></div>
       <form method="post" action="/sair"><input type="hidden" name="csrf" value="{{ sessao.csrf }}"><button type="submit">Sair</button></form>
-      <div class="mt" style="font-size:11.5px">Modelo: {{ modelo_nome or '—' }}{% if modelo_versao %}<br><span class="mono">{{ modelo_versao }}</span>{% endif %}</div>
+      <div class="mt modo-sistema">Modo: <b>{{ 'demonstração' if demonstracao else 'real' }}</b></div>
+      <div style="font-size:11.5px">Modelo: {{ modelo_nome or '—' }}{% if modelo_versao %}<br><span class="mono">{{ modelo_versao }}</span>{% endif %}</div>
     </div>
   </aside>
   <main class="principal">
-    {% if demonstracao %}<div class="faixa-demo" role="note"><b>Demonstração</b> Dados fictícios, criados para apresentar o sistema. Nada aqui descreve pessoas ou acontecimentos reais. Nenhum e-mail é enviado.</div>{% endif %}
+    {% if demonstracao %}<div class="faixa-demo" role="note"><b>Demonstração</b> <span>Dados fictícios, criados para apresentar o sistema. Nada aqui descreve pessoas ou acontecimentos reais. Nenhum e-mail é enviado.</span>
+      {% if sessao.papel == 'supervisor' and troca_disponivel %}<form method="post" action="/sistema/modo" data-trocar-modo="real" data-confirmar="Mudar para o sistema real? O servidor reinicia com a base de dados real e terá de entrar com a sua conta real.">
+        <input type="hidden" name="csrf" value="{{ sessao.csrf }}"><input type="hidden" name="modo" value="real">
+        <button class="botao pequeno secundario" type="submit">Mudar para o sistema real</button></form>{% endif %}</div>{% endif %}
     <div class="barra-topo nao-imprimir">
       <button class="topo-procurar" type="button" data-paleta-abrir aria-keyshortcuts="Control+K" aria-label="Procurar páginas e acções (Ctrl+K)">
         <svg class="icone" aria-hidden="true"><use href="#i-procurar"></use></svg><span>Procurar ou ir para…</span><kbd>Ctrl K</kbd></button>
@@ -146,6 +151,7 @@
 </div>
 <div class="visita-foco" id="visita-foco" hidden></div>
 <div class="visita-cartao" id="visita-cartao" role="dialog" aria-modal="false" aria-labelledby="visita-titulo" hidden>
+  <div class="visita-progresso" aria-hidden="true"><i data-visita-progresso></i></div>
   <div class="visita-passo" data-visita-contagem></div>
   <h2 id="visita-titulo" data-visita-titulo></h2>
   <p data-visita-texto></p>

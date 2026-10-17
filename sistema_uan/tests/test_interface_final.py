@@ -104,10 +104,13 @@ def test_tema_icones_e_paleta(app):
     h = c.get("/").text
     assert "<html lang=\"pt\">" in h  # automático por omissão
     assert '<symbol id="i-mapa"' in h and '<use href="#i-fila">' in h and 'id="paleta"' in h
-    c.cookies.set("uan_tema", "escuro")
+    r = c.post("/aspecto", data={"csrf": csrf(h), "tema": "escuro"}, headers={"X-Pedido": "fetch"})
+    assert r.json()["aspecto"]["tema"] == "escuro" and r.cookies.get("uan_tema") == "escuro"
     assert '<html lang="pt" data-tema="escuro">' in c.get("/").text
-    c.cookies.set("uan_tema", "<script>")
-    assert "data-tema" not in c.get("/").text.split("<head>")[0]
+    # o ecrã de entrada (sem sessão) usa o cookie, só com valores conhecidos
+    anon = TestClient(app)
+    anon.cookies.set("uan_tema", "<script>")
+    assert "data-tema" not in anon.get("/entrar").text.split("<head>")[0]
     assert ":root[data-tema=\"escuro\"]" in CSS and "prefers-color-scheme: dark" in CSS
     assert "Control+K" in h and '"k"' in JS and "/visita/vista" in JS
     # estados vazios ilustrados: só imagens embutidas (a CSP só permite 'self' e data:)
@@ -130,7 +133,8 @@ def test_modo_demonstracao(tmp_path, monkeypatch):
     n = bd.consultar("SELECT COUNT(*) AS n FROM publicacoes")[0]["n"]
     assert n > 800 and bd.consultar("SELECT COUNT(*) AS n FROM revisoes")[0]["n"] > 50
     assert bd.consultar("SELECT COUNT(*) AS n FROM alertas")[0]["n"] > 10
-    assert bd.consultar("SELECT COUNT(*) AS n FROM publicacoes WHERE plataforma != 'YouTube (fictício)'")[0]["n"] == 0
+    assert bd.consultar("SELECT COUNT(*) AS n FROM publicacoes WHERE plataforma NOT LIKE '%(fictício)'")[0]["n"] == 0
+    assert bd.consultar("SELECT COUNT(DISTINCT plataforma) AS n FROM publicacoes")[0]["n"] == 3
     assert BaseDados(real).consultar("SELECT COUNT(*) AS n FROM publicacoes")[0]["n"] == 0
     c = TestClient(a)
     assert "demo.analista" in c.get("/entrar").text and "Demonstração" in c.get("/entrar").text

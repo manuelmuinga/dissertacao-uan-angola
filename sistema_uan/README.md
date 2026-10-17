@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Os testes (74) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
+Os testes (99) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
 
 ## 2. Configuração: ficheiro `uan.env`
 
@@ -73,7 +73,9 @@ Abra **http://127.0.0.1:8000**. Na primeira vez, a aplicação pede para criar a
 python uan.py servir --demonstracao
 ```
 
-Cria, na primeira vez, a base `dados\demonstracao.db` com cerca de 1 500 publicações **fictícias** (16 semanas, 18 províncias), decisões de analistas e alertas, e usa o classificador de demonstração. Todas as páginas mostram a faixa "Demonstração" e nenhum e-mail é enviado, mesmo com o servidor de e-mail configurado. Contas: `demo.supervisor`, `demo.analista` e `demo.revisor`, palavra-passe `demonstracao`. `--repor` apaga e recria os dados fictícios. A base real (`dados\sistema.db`) não é aberta.
+Cria, na primeira vez, a base `dados\demonstracao.db` com cerca de 1 350 publicações **fictícias** em 16 semanas: conversas de três plataformas fictícias (vídeos, páginas e notícias) sobre transportes, água e luz, saúde, educação, economia, desporto e cultura, em 18 províncias, com registos formais e coloquiais, respostas entre utilizadores e casos de fronteira (convocatórias pacíficas e legais, críticas duras ao Governo). Episódios com princípio e fim (um boato de cólera em Benguela, uma paralisação com intimidação em Luanda, uma rivalidade na Huíla que acalma) dão forma ao mapa, às tendências e aos alertas. As sugestões vêm de um classificador **simulado**, que acerta e erra como um modelo real (erra mais na Desinformação), e há decisões de dois analistas. Quando o gerador muda de versão, a base de demonstração antiga é recriada sozinha. Todas as páginas mostram a faixa "Demonstração" e nenhum e-mail é enviado, mesmo com o servidor de e-mail configurado. Contas: `demo.supervisor`, `demo.analista` e `demo.revisor`, palavra-passe `demonstracao`. `--repor` apaga e recria os dados fictícios. A base real (`dados\sistema.db`) não é aberta.
+
+**Trocar de modo sem fechar a janela.** Com o sistema aberto, um supervisor pode passar da demonstração para o sistema real (e ao contrário) no botão da faixa "Demonstração", em *Definições e aspecto → Modo do sistema* ou na paleta (`Ctrl`+`K`, "mudar"). O servidor reinicia na mesma janela com a outra base de dados e o navegador abre a página de entrada quando estiver pronto. As duas bases nunca se misturam e cada uma tem as suas contas.
 
 Por omissão o servidor só aceita ligações do próprio computador. Para outros computadores da rede local usarem o sistema: `python uan.py servir --anfitriao 0.0.0.0` (abra a porta 8000 na firewall do Windows só para a rede interna; para uso fora de um teste, coloque o serviço atrás de HTTPS e defina `UAN_COOKIE_SEGURO=1`).
 
@@ -93,9 +95,9 @@ Por omissão o servidor só aceita ligações do próprio computador. Para outro
 | Métricas | supervisor | Precisão@K, κ analista–sistema, κ entre analistas, sensibilidade com IC 95%, latência; exportar revisões e JSON |
 | Utilizadores | supervisor | Criar, desactivar, redefinir palavra-passe |
 | Auditoria | supervisor | Entradas, importações, classificações, revisões, exportações e alterações |
-| Definições | supervisor | Revisão cega, limpeza de conservação, cópia de segurança |
+| Definições e aspecto | todos (o resto: supervisor) | **Aspecto**, por conta: tema (automático, claro, escuro), cor principal (azul, verde, vinho, petróleo, grafite), menu lateral (escuro, da cor principal, claro), cores do mapa, cantos e animações, com efeito imediato. **Supervisor**: modo do sistema (real ou demonstração), revisão cega, regras e destinatários dos alertas, limpeza de conservação, cópia de segurança |
 
-No topo de cada página: **Procurar** (`Ctrl`+`K`) abre uma paleta para ir a qualquer página ou acção (por exemplo, "rel 7" → relatório dos últimos 7 dias); o **sino** mostra os últimos alertas; o botão de **tema** alterna entre automático (segue o sistema), escuro e claro. Na primeira entrada, uma **visita guiada** de 4 passos apresenta a fila, os alertas, o mapa e a ficha do modelo; pode repeti-la em *Visita guiada*, no fundo do menu. As tabelas do mapa e do relatório ordenam-se clicando no cabeçalho.
+No topo de cada página: **Procurar** (`Ctrl`+`K`) abre uma paleta para ir a qualquer página ou acção (por exemplo, "rel 7" → relatório dos últimos 7 dias); o **sino** mostra os últimos alertas; o botão de **tema** alterna entre automático (segue o sistema), escuro e claro. Na primeira entrada, uma **visita guiada** percorre todo o sistema, página a página (14 passos para analistas, 18 para supervisores, com as páginas de supervisão), com barra de progresso, setas do teclado e `Esc` para sair; pode repeti-la em *Visita guiada*, no fundo do menu. No mapa, ao passar o rato numa província aparece só o cartão do sistema, sem a dica do navegador. As tabelas do mapa e do relatório ordenam-se clicando no cabeçalho.
 
 Tudo funciona sem Internet: a interface não usa bibliotecas, tipos de letra nem ícones externos, e a política de segurança (CSP) só permite recursos do próprio servidor.
 
@@ -105,17 +107,19 @@ A API JSON está em `/api` (documentação em `/api/docs`), com o cabeçalho `X-
 
 ## 5. Recolha de novos dados
 
-Além da importação de ficheiros, o sistema recolhe ele próprio de duas origens:
+Além da importação de ficheiros, o sistema recolhe ele próprio do YouTube e de sítios web públicos. Pode acrescentar **várias fontes de uma vez**: cole os endereços, um por linha, e o tipo de cada um é detectado automaticamente (a página mostra-o antes de gravar). Uma linha de texto livre passa a ser uma pesquisa no YouTube; linhas repetidas ou já registadas são ignoradas.
 
 | Tipo de fonte | Endereço | Como recolhe |
 |---|---|---|
 | `youtube_video` | ligação de um vídeo | Comentários e respostas pela YouTube Data API v3 (`UAN_YOUTUBE_CHAVE`) |
 | `youtube_canal` | `https://www.youtube.com/@canal` | Vídeos mais recentes do canal e os respectivos comentários, pela API |
+| `youtube_lista` | `https://www.youtube.com/playlist?list=PL…` | Vídeos da lista de reprodução e os seus comentários |
+| `youtube_pesquisa` | termos de pesquisa (ex.: `greve professores Huambo`) | Vídeos mais recentes com esses termos (região Angola, português) e os seus comentários; gasta mais quota da API |
 | `rss` | endereço do feed RSS/Atom | Título e resumo de cada entrada; se o resumo for curto, lê o início do artigo |
 | `pagina` | ligação de um artigo | Título, data e primeiros parágrafos do artigo |
 | `sitio` | página inicial ou secção de um jornal | Segue as ligações para artigos do mesmo sítio e lê cada um |
 
-Na página **Fontes e recolha** (ou `python uan.py fonte-adicionar --tipo sitio --endereco https://exemplo.ao --nome "Jornal"`) regista a fonte; o botão **Recolher** (ou `python uan.py recolher`) recolhe todas as fontes activas, grava um lote por fonte e classifica a seguir. `python uan.py fontes` lista as fontes e o estado da última recolha. Para recolha periódica, agende `python uan.py recolher` no Agendador de Tarefas do Windows.
+Na página **Fontes e recolha** (ou `python uan.py fonte-adicionar --endereco https://exemplo.ao/feed "greve professores" @canal`) regista as fontes; o botão **Recolher** (ou `python uan.py recolher`) recolhe todas as fontes activas, grava um lote por fonte e classifica a seguir. `python uan.py fontes` lista as fontes e o estado da última recolha. Para recolha periódica, agende `python uan.py recolher` no Agendador de Tarefas do Windows.
 
 Regras que o código aplica e que não devem ser contornadas:
 
@@ -159,7 +163,7 @@ Mede importação + anonimização + classificação numa base temporária. A cl
 
 ```
 python uan.py importar dados\comentarios.csv --plataforma YouTube --via api_oficial --descricao "lote 12"
-python uan.py fonte-adicionar --tipo rss --endereco https://exemplo.ao/feed --nome "Jornal"
+python uan.py fonte-adicionar --endereco https://exemplo.ao/feed https://www.youtube.com/@canal "greve professores"
 python uan.py recolher
 python uan.py classificar
 python uan.py alertas

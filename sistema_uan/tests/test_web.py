@@ -121,8 +121,10 @@ def test_redireccionamento_externo_bloqueado(app, contas):
 
 def test_papeis(app, contas):
     ana = entrar(app, "ana")
-    for url in ("/metricas", "/utilizadores", "/auditoria", "/definicoes"):
+    for url in ("/metricas", "/utilizadores", "/auditoria"):
         assert ana.get(url).status_code == 403
+    d = ana.get("/definicoes")  # o analista só vê o aspecto
+    assert d.status_code == 200 and 'name="cor"' in d.text and "Revisão cega" not in d.text and "/sistema/modo" not in d.text
     assert ana.get("/fila").status_code == 200
     sup = entrar(app, "sup")
     for url in ("/metricas", "/utilizadores", "/auditoria", "/definicoes", "/lotes"):

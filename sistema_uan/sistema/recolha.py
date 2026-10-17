@@ -2,8 +2,9 @@
 
 Duas vias, ambas declaradas por lote:
 
-- **YouTube Data API v3** (via `api_oficial`): comentários públicos de vídeos ou dos
-  vídeos mais recentes de um canal. Precisa de uma chave da API (`UAN_YOUTUBE_CHAVE`).
+- **YouTube Data API v3** (via `api_oficial`): comentários públicos de vídeos, dos
+  vídeos mais recentes de um canal ou de uma lista de reprodução, ou dos vídeos que
+  uma pesquisa por termos devolve. Precisa de uma chave da API (`UAN_YOUTUBE_CHAVE`).
 - **Páginas web públicas** (via `scraping_publico`): páginas de notícias, comunicados
   e outros sítios abertos, e feeds RSS/Atom. Recolhe título e primeiros parágrafos
   (o mesmo formato «título + lead» das notícias do piloto).
@@ -43,11 +44,70 @@ log = logging.getLogger(__name__)
 TIPOS = {
     "youtube_video": "Vídeo do YouTube (comentários)",
     "youtube_canal": "Canal do YouTube (vídeos recentes)",
+    "youtube_lista": "Lista de reprodução do YouTube",
+    "youtube_pesquisa": "Pesquisa no YouTube (termos)",
     "rss": "Feed RSS/Atom",
     "pagina": "Página web pública",
     "sitio": "Sítio web público (página inicial e ligações)",
 }
-TIPOS_YOUTUBE = ("youtube_video", "youtube_canal")
+TIPOS_YOUTUBE = ("youtube_video", "youtube_canal", "youtube_lista", "youtube_pesquisa")
+_ID_VIDEO = re.compile(r"^[A-Za-z0-9_-]{11}$")
+_ID_CANAL = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
+_ID_LISTA = re.compile(r"^(PL|UU|OL|FL|RD)[A-Za-z0-9_-]{10,}$")
+
+
+def detectar_tipo(endereco: str) -> str:
+    """Tipo de fonte provável para um endereço, termo de pesquisa ou identificador."""
+    e = (endereco or "").strip()
+    if e.lower().startswith("pesquisa:"):
+        return "youtube_pesquisa"
+    if "://" in e and not e.startswith(("http://", "https://")):
+        return "pagina"  # outro protocolo: a validação recusa-o
+    if not e.startswith(("http://", "https://")):
+        if e.startswith("@") or _ID_CANAL.match(e):
+            return "youtube_canal"
+        if _ID_LISTA.match(e):
+            return "youtube_lista"
+        if _ID_VIDEO.match(e):
+            return "youtube_video"
+        if e.startswith(("www.", "youtube.com", "youtu.be")) or re.match(r"^[\w-]+(\.[\w-]+)+/", e):
+            return detectar_tipo("https://" + e)
+        return "youtube_pesquisa"  # texto livre = termos de pesquisa
+    u = urllib.parse.urlsplit(e)
+    host = (u.hostname or "").removeprefix("www.").removeprefix("m.")
+    caminho = u.path.rstrip("/")
+    q = urllib.parse.parse_qs(u.query)
+    if host == "youtu.be" or (host.endswith("youtube.com") and (caminho == "/watch" and "v" in q
+                                                                 or caminho.startswith(("/shorts/", "/live/")))):
+        return "youtube_video"
+    if host.endswith("youtube.com"):
+        if "list" in q:
+            return "youtube_lista"
+        if caminho == "/results" and "search_query" in q:
+            return "youtube_pesquisa"
+        return "youtube_canal"
+    ultimo = caminho.rsplit("/", 1)[-1].lower()
+    if re.search(r"(\.(xml|rss|atom)$|^(feed|rss|atom)$)", ultimo) or "/feed/" in caminho.lower() + "/":
+        return "rss"
+    if not caminho or (ultimo.count("-") < 3 and not re.search(r"\d{4}|\.html?$|\.php$", ultimo)
+                       and caminho.count("/") <= 2):
+        return "sitio"
+    return "pagina"
+
+
+def normalizar_endereco(tipo: str, endereco: str) -> str:
+    e = endereco.strip()
+    if tipo == "youtube_pesquisa":
+        if e.lower().startswith("pesquisa:"):
+            e = e.split(":", 1)[1]
+        elif e.startswith(("http://", "https://")):
+            e = urllib.parse.parse_qs(urllib.parse.urlsplit(e).query).get("search_query", [e])[0]
+        return " ".join(e.split())[:200]
+    if tipo == "youtube_lista" and e.startswith(("http://", "https://")):
+        return urllib.parse.parse_qs(urllib.parse.urlsplit(e).query).get("list", [e])[0]
+    if tipo not in TIPOS_YOUTUBE and not e.startswith(("http://", "https://")) and re.match(r"^[\w-]+(\.[\w-]+)+(/|$)", e):
+        return "https://" + e
+    return e
 MAX_BYTES = 3 * 1024 * 1024
 LEAD_CARACTERES = 700
 
@@ -360,11 +420,23 @@ class ClienteYouTube:
         itens = self._api("playlistItems", part="snippet", playlistId=uploads, maxResults=min(n, 50)).get("items", [])
         return [{"id": i["snippet"]["resourceId"]["videoId"], "titulo": i["snippet"]["title"]} for i in itens]
 
+    def videos_da_lista(self, lista: str, n: int) -> list[dict]:
+        itens = self._api("playlistItems", part="snippet", playlistId=lista, maxResults=min(n, 50)).get("items", [])
+        if not itens:
+            raise ErroRecolha(f"Lista vazia ou não encontrada: {lista}")
+        return [{"id": i["snippet"]["resourceId"]["videoId"], "titulo": i["snippet"]["title"]} for i in itens]
+
+    def videos_da_pesquisa(self, termos: str, n: int) -> list[dict]:
+        """Vídeos mais recentes que respondem aos termos, com Angola como região e o português como língua."""
+        itens = self._api("search", part="snippet", q=termos, type="video", order="date", regionCode="AO",
+                          relevanceLanguage="pt", maxResults=min(n, 50)).get("items", [])
+        return [{"id": i["id"]["videoId"], "titulo": i["snippet"]["title"]} for i in itens if i.get("id", {}).get("videoId")]
+
     def comentarios(self, video: str, titulo: str, n: int) -> list[dict]:
         if "watch?v=" in video:
             video = urllib.parse.parse_qs(urllib.parse.urlsplit(video).query)["v"][0]
-        elif "youtu.be/" in video:
-            video = video.rstrip("/").split("/")[-1]
+        elif "youtu.be/" in video or "/shorts/" in video or "/live/" in video:
+            video = urllib.parse.urlsplit(video).path.rstrip("/").split("/")[-1]
         out, pagina = [], None
         while len(out) < n:
             params = dict(part="snippet,replies", videoId=video, maxResults=100, order="time", textFormat="plainText")
@@ -387,7 +459,14 @@ def recolher_youtube(fonte: dict, yt: ClienteYouTube) -> tuple[list[dict], list[
     if fonte["tipo"] == "youtube_video":
         return yt.comentarios(fonte["endereco"], fonte["nome"], n), []
     registos, avisos = [], []
-    videos = yt.videos_do_canal(fonte["endereco"], 10)
+    if fonte["tipo"] == "youtube_lista":
+        videos = yt.videos_da_lista(fonte["endereco"], 10)
+    elif fonte["tipo"] == "youtube_pesquisa":
+        videos = yt.videos_da_pesquisa(fonte["endereco"], 10)
+        if not videos:
+            return [], [f"A pesquisa «{fonte['endereco']}» não devolveu vídeos."]
+    else:
+        videos = yt.videos_do_canal(fonte["endereco"], 10)
     por_video = max(20, n // max(1, len(videos)))
     for v in videos:
         try:
@@ -402,9 +481,15 @@ def recolher_youtube(fonte: dict, yt: ClienteYouTube) -> tuple[list[dict], list[
 # ----------------------------------------------------------------------------- gestão das fontes
 def adicionar_fonte(bd: BaseDados, tipo: str, endereco: str, nome: str, quem: str, max_itens: int = 100,
                     plataforma: str | None = None) -> int:
+    if tipo == "auto":
+        tipo = detectar_tipo(endereco)
     if tipo not in TIPOS:
         raise ValueError(f"Tipo deve ser um de {list(TIPOS)}")
-    endereco = endereco.strip()
+    endereco = normalizar_endereco(tipo, endereco)
+    if not endereco:
+        raise ValueError("Endereço vazio.")
+    if tipo == "youtube_pesquisa" and not nome.strip():
+        nome = f"Pesquisa: {endereco}"
     if tipo not in TIPOS_YOUTUBE and not endereco.startswith(("http://", "https://")):
         raise ValueError("O endereço de uma fonte web tem de começar por http:// ou https://")
     if not plataforma:
@@ -417,6 +502,36 @@ def adicionar_fonte(bd: BaseDados, tipo: str, endereco: str, nome: str, quem: st
         id_fonte = int(cur.lastrowid)
     bd.auditar(quem, "fonte_adicionada", {"id_fonte": id_fonte, "tipo": tipo, "endereco": endereco})
     return id_fonte
+
+
+def adicionar_fontes(bd: BaseDados, texto: str, quem: str, tipo: str = "auto", nome: str = "",
+                     max_itens: int = 100) -> dict:
+    """Acrescenta várias fontes de uma vez: um endereço, identificador ou termo de pesquisa por linha.
+
+    Devolve {"criadas": [(id, tipo, endereco)], "repetidas": [...], "erros": [(linha, motivo)]}.
+    Uma linha com erro não impede as outras. Com várias linhas, o nome dado serve de prefixo.
+    """
+    linhas = [l.strip() for l in re.split(r"[\r\n]+", texto or "") if l.strip() and not l.strip().startswith("#")]
+    if len(linhas) > 100:
+        raise ValueError("No máximo 100 endereços de cada vez.")
+    existentes = {(r["tipo"], r["endereco"]) for r in bd.consultar("SELECT tipo, endereco FROM fontes")}
+    out: dict = {"criadas": [], "repetidas": [], "erros": []}
+    for i, linha in enumerate(linhas, 1):
+        t = detectar_tipo(linha) if tipo == "auto" else tipo
+        try:
+            endereco = normalizar_endereco(t, linha)
+            if (t, endereco) in existentes:
+                out["repetidas"].append(linha)
+                continue
+            n = nome.strip()
+            if n and len(linhas) > 1:
+                n = f"{n} ({i})"
+            idf = adicionar_fonte(bd, t, endereco, n, quem, max_itens)
+            existentes.add((t, endereco))
+            out["criadas"].append((idf, t, endereco))
+        except ValueError as e:
+            out["erros"].append((linha, str(e)))
+    return out
 
 
 def recolher_fonte(bd: BaseDados, cfg: Config, id_fonte: int, quem: str = "sistema",

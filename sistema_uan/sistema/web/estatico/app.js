@@ -3,7 +3,8 @@
 (function () {
   "use strict";
 
-  var reduzirMovimento = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var reduzirMovimento = (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) ||
+    document.documentElement.getAttribute("data-movimento") === "reduzido";
   function cada(seletor, fn, raiz) {
     Array.prototype.forEach.call((raiz || document).querySelectorAll(seletor), fn);
   }
@@ -325,10 +326,12 @@
   }
 
   // ---------- mapa interactivo: acender, cartão flutuante, destaque na tabela ----------
-  function corEscala(v, max) {
-    if (!(v > 0)) return "#f6efe6";
+  function hexRgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function corEscala(v, max, ea, eb) {
+    ea = ea || "#f6efe6"; eb = eb || "#a3261a";
+    if (!(v > 0)) return ea;
     var t = max > 0 ? Math.min(1, v / max) : 0, f = 0.12 + 0.88 * t;
-    var a = [0xf6, 0xef, 0xe6], b = [0xa3, 0x26, 0x1a];
+    var a = hexRgb(ea), b = hexRgb(eb);
     return "#" + a.map(function (x, i) { var c = Math.round(x + (b[i] - x) * f).toString(16); return c.length < 2 ? "0" + c : c; }).join("");
   }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
@@ -429,7 +432,7 @@
       cada("a[data-prov]", function (a) {
         var p = a.querySelector("path"), cod = a.dataset.prov;
         if (completo) { p.setAttribute("fill", p.dataset.cor); return; }
-        p.setAttribute("fill", serie.mencoes[cod][i] ? corEscala(serie.valores[cod][i], maximo) : "#eceee9");
+        p.setAttribute("fill", serie.mencoes[cod][i] ? corEscala(serie.valores[cod][i], maximo, svg.getAttribute("data-escala-a"), svg.getAttribute("data-escala-b")) : "#eceee9");
       }, svg);
       if (completo) rotulo.textContent = "Período completo";
       else {
@@ -574,6 +577,9 @@
       var actual = document.documentElement.getAttribute("data-tema") || "";
       var seguinte = { "": "escuro", escuro: "claro", claro: "" }[actual];
       aplicarTema(seguinte);
+      gravarAspecto({ tema: seguinte || "auto" });
+      var radio = document.querySelector('form[data-aspecto] input[name=tema][value="' + (seguinte || "auto") + '"]');
+      if (radio) radio.checked = true;
       toast("Tema: " + ({ escuro: "escuro", claro: "claro" }[seguinte] || "automático, segue o sistema") + ".", { tipo: "info", ms: 2000 });
     });
   }
@@ -662,12 +668,23 @@
      ["Alertas de tendência", "/alertas?tipo=tendencia", "alertas"], ["Alertas confirmados", "/alertas?tipo=confirmado", "alertas"],
      ["A minha conta e palavra-passe", "/conta", "utilizadores"]
     ].forEach(function (c) { cmds.push({ grupo: "Atalhos", texto: c[0], url: c[1], icone: "#i-" + c[2] }); });
-    [["Tema escuro", function () { aplicarTema("escuro"); }, "lua"], ["Tema claro", function () { aplicarTema("claro"); }, "sol"],
-     ["Tema automático (segue o sistema)", function () { aplicarTema(""); }, "auto"],
+    [["Tema escuro", function () { aplicarTema("escuro"); gravarAspecto({ tema: "escuro" }); }, "lua"],
+     ["Tema claro", function () { aplicarTema("claro"); gravarAspecto({ tema: "claro" }); }, "sol"],
+     ["Tema automático (segue o sistema)", function () { aplicarTema(""); gravarAspecto({ tema: "auto" }); }, "auto"],
+     ["Aspecto: cor, menu, mapa e animações", function () { window.location.href = "/definicoes#aspecto"; }, "definicoes"],
      ["Visita guiada", function () { iniciarVisita(); }, "visita"],
      ["Atalhos de teclado", function () { mostrarAjuda(true); }, "definicoes"],
      ["Imprimir esta página", function () { window.print(); }, "relatorio"]
     ].forEach(function (c) { cmds.push({ grupo: "Acções", texto: c[0], fn: c[1], icone: "#i-" + c[2] }); });
+    if (ehSupervisor && document.body.getAttribute("data-troca") === "1") {
+      var outro = emDemo ? "real" : "demonstracao";
+      cmds.push({ grupo: "Acções", texto: emDemo ? "Mudar para o sistema real" : "Mudar para a demonstração (dados fictícios)", icone: "#i-auto",
+        fn: function () {
+          if (!window.confirm(emDemo ? "Mudar para o sistema real? Terá de entrar com a sua conta real." : "Mudar para a demonstração? Os dados reais ficam intactos.")) return;
+          enviar("/sistema/modo", { csrf: csrf(), modo: outro }).then(function () { esperarTroca(outro); })
+            .catch(function (err) { toast(err.message, { tipo: "erro", ms: 9000 }); });
+        } });
+    }
     return cmds;
   }
   function desenharPaleta() {
@@ -731,25 +748,51 @@
   }
 
   // ---------- visita guiada (4 passos; aparece na primeira entrada e pode repetir-se no menu) ----------
-  var PASSOS = [
-    { titulo: "Fila de revisão", texto: "Começa aqui. A fila mostra primeiro o que o modelo considera mais provável ser ameaça. Decida com as teclas 1 a 4 e desfaça com U. O modelo sugere; quem decide é o analista." },
-    { titulo: "Alertas", texto: "Os alertas nascem só de decisões humanas: um alerta quando um analista confirma uma ameaça e outro quando as ameaças confirmadas crescem numa província. O sino no topo mostra os últimos." },
-    { titulo: "Mapa por província", texto: "A cor é a taxa de ameaças confirmadas sobre as publicações que mencionam cada província. Passe o rato para ver os números, clique para destacar na tabela e use ▶ para ver a evolução semana a semana." },
-    { titulo: "Relatório e Sobre o modelo", texto: "O relatório reúne o período escolhido para imprimir, descarregar em CSV ou enviar por e-mail. Em Sobre o modelo vê o que o modelo sabe e onde falha, sobretudo em conteúdo angolano." }
+  var ehSupervisor = document.body.getAttribute("data-papel") === "supervisor";
+  var emDemo = document.body.getAttribute("data-modo") === "demonstracao";
+  var TODOS_PASSOS = [
+    { titulo: "Bem-vindo ao Sistema UAN", texto: "Esta visita mostra, uma a uma, todas as partes do sistema. Use Seguinte e Anterior (ou as setas do teclado); Esc fecha a qualquer momento." +
+      (emDemo ? " Está no modo de demonstração: os dados são fictícios e pode experimentar à vontade." : "") },
+    { alvo: '.menu a[href="/"]', titulo: "Panorama", texto: "O resumo do trabalho: publicações recolhidas, o que o modelo sinalizou, o que falta rever e as decisões dos analistas, por categoria e por dia. Nunca mostra perfis de autores." },
+    { alvo: '.menu a[href="/fila"]', titulo: "Fila de revisão", texto: "O centro do trabalho. Mostra primeiro o que o modelo considera mais provável ser ameaça. Decida com as teclas 1 a 4 (Normal, Desinformação, Ódio, Mobilização), mude de item com J e K, abra o detalhe com D, escreva uma nota com N e desfaça a última decisão com U durante 5 segundos. Os lugares reconhecidos e os dados mascarados aparecem realçados no texto." },
+    { alvo: '.menu a[href="/amostra"]', titulo: "Amostra de controlo", texto: "Publicações que o modelo classificou como Normal, sorteadas e sempre mostradas sem sugestão. Servem para estimar quantas ameaças a fila deixa passar." },
+    { alvo: '.menu a[href="/alertas"]', titulo: "Alertas", texto: "Os alertas nascem só de decisões humanas: um quando um analista confirma uma ameaça e outro quando as ameaças confirmadas crescem numa província. Com o e-mail configurado, seguem também para os destinatários definidos, sem o texto nem o autor." },
+    { alvo: "[data-sino]", titulo: "Sino dos alertas", texto: "Mostra os cinco alertas mais recentes e quantos estão por ver. Actualiza-se sozinho: quando surge um alerta novo, aparece uma notificação no canto, sem recarregar a página." },
+    { alvo: '.menu a[href="/mapa"]', titulo: "Mapa por província", texto: "A cor é a taxa de ameaças sobre as publicações que mencionam cada província (o lugar mencionado, não o de quem escreve). Passe o rato para ver os números, clique para destacar a linha na tabela, use ▶ para ver a evolução semana a semana e descarregue o mapa em SVG ou PNG." },
+    { alvo: '.menu a[href="/relatorio"]', titulo: "Relatório de alertas", texto: "Reúne o período escolhido: indicadores com tendência, mapa, categorias, alertas e ameaças confirmadas. Imprima ou guarde em PDF, descarregue em CSV ou, como supervisor, envie o resumo por e-mail." },
+    { alvo: '.menu a[href="/modelo"]', titulo: "Sobre o modelo", texto: "A ficha do modelo: como foi avaliado, o desempenho por categoria e em conteúdo angolano, as limitações conhecidas e o acordo real entre analistas e modelo nesta instalação. Leia antes de confiar numa sugestão." },
+    { alvo: '.menu a[href="/lotes"]', titulo: "Lotes", texto: "Cada importação ou recolha fica registada como um lote, com a plataforma, a via e a data. O supervisor importa aqui ficheiros CSV ou JSON; os autores são anonimizados à entrada." },
+    { alvo: '.menu a[href="/fontes"]', titulo: "Fontes e recolha", texto: "Cole vários endereços de uma vez, um por linha: vídeos, canais, listas e pesquisas do YouTube, feeds RSS, páginas e sítios públicos. O tipo é detectado sozinho. O botão Recolher traz as publicações novas e classifica-as." },
+    { alvo: '.menu a[href="/metricas"]', titulo: "Métricas", texto: "Precisão nos primeiros itens da fila, acordo entre analistas e modelo e entre analistas, sensibilidade estimada pela amostra de controlo e tempos de processamento. Exporta as revisões para novo treino." },
+    { alvo: '.menu a[href="/utilizadores"]', titulo: "Utilizadores", texto: "Criar contas de analistas e supervisores, desactivá-las e redefinir palavras-passe. Cada pessoa entra com a sua própria conta." },
+    { alvo: '.menu a[href="/auditoria"]', titulo: "Auditoria", texto: "O registo de tudo o que acontece: entradas, importações, recolhas, decisões, exportações, alertas e alterações de definições." },
+    { alvo: '.menu a[href="/definicoes"]', titulo: "Definições e aspecto", texto: "Escolha o tema, a cor principal, o menu, as cores do mapa, os cantos e as animações, só para a sua conta." +
+      (ehSupervisor ? " Como supervisor, tem também a revisão cega, as regras e os destinatários dos alertas, a conservação de dados, as cópias de segurança e a troca entre o modo real e a demonstração." : "") },
+    { alvo: "[data-paleta-abrir]", titulo: "Procurar (Ctrl+K)", texto: "Chegue a qualquer página ou acção escrevendo parte do nome, por exemplo «mapa 7» ou «tema escuro»." },
+    { alvo: "[data-tema-alternar]", titulo: "Tema", texto: "Alterna entre automático (segue o sistema), escuro e claro. A escolha fica guardada na sua conta." },
+    { titulo: "Pronto", texto: "A tecla ? mostra todos os atalhos de teclado. Pode repetir esta visita em Visita guiada, no fundo do menu. Lembre-se: o modelo sugere, quem decide é o analista." }
   ];
+  function passosVisiveis() {
+    return TODOS_PASSOS.filter(function (p) { return !p.alvo || document.querySelector(p.alvo); });
+  }
+  var PASSOS = passosVisiveis();
   var visita = { i: 0, activa: false };
   var visitaFoco = document.getElementById("visita-foco"), visitaCartao = document.getElementById("visita-cartao");
   function posicionarVisita() {
     var passo = PASSOS[visita.i];
-    var alvo = document.querySelector('[data-visita-passo="' + (visita.i + 1) + '"]');
+    var alvo = passo.alvo ? document.querySelector(passo.alvo) : null;
+    var progresso = visitaCartao.querySelector("[data-visita-progresso]");
+    if (progresso) progresso.style.width = Math.round(100 * (visita.i + 1) / PASSOS.length) + "%";
     visitaCartao.querySelector("[data-visita-contagem]").textContent = "Passo " + (visita.i + 1) + " de " + PASSOS.length;
     visitaCartao.querySelector("[data-visita-titulo]").textContent = passo.titulo;
     visitaCartao.querySelector("[data-visita-texto]").textContent = passo.texto;
     visitaCartao.querySelector("[data-visita-anterior]").disabled = visita.i === 0;
     visitaCartao.querySelector("[data-visita-seguinte]").textContent = visita.i === PASSOS.length - 1 ? "Concluir" : "Seguinte";
-    if (alvo && lateral && window.innerWidth <= 960 && !lateral.classList.contains("aberto")) {
-      lateral.classList.add("aberto"); alternar.setAttribute("aria-expanded", "true");
+    if (lateral && window.innerWidth <= 960) {
+      var noMenu = !!(alvo && lateral.contains(alvo));
+      lateral.classList.toggle("aberto", noMenu); alternar.setAttribute("aria-expanded", noMenu ? "true" : "false");
     }
+    if (alvo && alvo.scrollIntoView) alvo.scrollIntoView({ block: "nearest" });
     var r = alvo ? alvo.getBoundingClientRect() : null;
     visitaCartao.hidden = false;
     var w = visitaCartao.offsetWidth, h = visitaCartao.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
@@ -797,4 +840,97 @@
     cada("[data-visita-iniciar]", function (b) { b.addEventListener("click", function (e) { e.stopPropagation(); iniciarVisita(); }); });
     if (document.body.hasAttribute("data-visita-auto")) setTimeout(iniciarVisita, reduzirMovimento ? 0 : 700);
   }
+
+  // ---------- fontes: pré-visualização do tipo detectado em cada linha ----------
+  cada("form[data-fontes]", function (f) {
+    var area = f.querySelector("textarea[name=enderecos]"), lista = f.querySelector("[data-fontes-previa]");
+    var tipoSel = f.querySelector("select[name=tipo]");
+    if (!area || !lista || !window.fetch) return;
+    var espera = null;
+    var mostrar = function () {
+      if (!area.value.trim()) { lista.innerHTML = ""; return; }
+      enviar("/fontes/detectar", { csrf: csrf(), enderecos: area.value }).then(function (d) {
+        var manual = tipoSel && tipoSel.value !== "auto" ? tipoSel.options[tipoSel.selectedIndex].text : null;
+        lista.innerHTML = d.linhas.map(function (l) {
+          return "<li class='" + (l.repetida ? "repetida" : "") + "'><span class='pilula" + (l.tipo.indexOf("youtube") === 0 ? " forte" : "") + "'>" +
+            esc(manual || l.tipo_nome) + "</span> <span class='mono'>" + esc(l.endereco) + "</span>" +
+            (l.repetida ? " <small>já existe, será ignorada</small>" : "") + "</li>";
+        }).join("");
+      }).catch(function () {});
+    };
+    area.addEventListener("input", function () { clearTimeout(espera); espera = setTimeout(mostrar, 350); });
+    if (tipoSel) tipoSel.addEventListener("change", mostrar);
+  });
+
+  // ---------- aspecto: pré-visualização imediata e gravação (Definições) ----------
+  function gravarAspecto(dados) {
+    if (!window.fetch || !document.querySelector("input[name=csrf]")) return Promise.resolve();
+    dados.csrf = csrf();
+    return enviar("/aspecto", dados).catch(function (e) { toast(e.message, { tipo: "erro" }); });
+  }
+  var PADRAO_ASPECTO = { cor: "azul", menu: "escuro", cantos: "arredondados", movimento: "normal" };
+  function aplicarAspecto(nome, valor) {
+    var raiz = document.documentElement;
+    if (nome === "tema") { aplicarTema(valor === "auto" ? "" : valor); return; }
+    if (nome === "mapa") return;   // as cores do mapa vêm do servidor
+    if (valor === PADRAO_ASPECTO[nome]) raiz.removeAttribute("data-" + nome); else raiz.setAttribute("data-" + nome, valor);
+    if (nome === "movimento") reduzirMovimento = valor === "reduzido";
+  }
+  cada("form[data-aspecto]", function (f) {
+    var gravacao = null, aviso = null;
+    f.addEventListener("change", function (e) {
+      var el = e.target;
+      if (!el.name || el.type !== "radio") return;
+      aplicarAspecto(el.name, el.value);
+      clearTimeout(gravacao);
+      var dados = {}; dados[el.name] = el.value;
+      gravacao = setTimeout(function () {
+        gravarAspecto(dados).then(function (d) {
+          if (!d || !d.ok) return;
+          if (aviso) sairToast(aviso);
+          aviso = toast("Aspecto gravado.", { tipo: "ok", ms: 1800 });
+        });
+      }, 150);
+    });
+  });
+
+  // ---------- troca entre o modo real e a demonstração ----------
+  function esperarTroca(modo) {
+    var nome = modo === "demonstracao" ? "de demonstração" : "real";
+    var ecra = document.createElement("div");
+    ecra.className = "troca-ecra"; ecra.setAttribute("role", "alertdialog"); ecra.setAttribute("aria-live", "assertive");
+    ecra.innerHTML = '<div class="cartao"><div class="rodar" aria-hidden="true"></div><h2>A mudar para o modo ' + nome + '</h2>' +
+      '<p class="suave">O servidor está a reiniciar com a outra base de dados. A página de entrada abre sozinha quando estiver pronto' +
+      (modo === "demonstracao" ? ' (na primeira vez, o tempo de criar os dados fictícios).' : ' (o modelo demora alguns segundos a carregar).') +
+      '</p><p class="ajuda" data-troca-tempo>0 s</p></div>';
+    document.body.appendChild(ecra);
+    var inicio = Date.now(), tempo = ecra.querySelector("[data-troca-tempo]");
+    var tentar = function () {
+      tempo.textContent = Math.round((Date.now() - inicio) / 1000) + " s";
+      fetch("/sistema/estado", { cache: "no-store", headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.modo === modo) { window.location.href = "/entrar"; return; }
+          setTimeout(tentar, 1500);
+        })
+        .catch(function () { setTimeout(tentar, 1500); });
+    };
+    setTimeout(tentar, 1500);
+  }
+  cada("form[data-trocar-modo]", function (f) {
+    f.addEventListener("submit", function (e) {
+      if (e.defaultPrevented || !window.fetch) return;
+      e.preventDefault();
+      var modo = f.getAttribute("data-trocar-modo");
+      enviar("/sistema/modo", { csrf: csrf(), modo: modo })
+        .then(function () { esperarTroca(modo); })
+        .catch(function (err) {
+          toast(err.message, { tipo: "erro", ms: 9000 });
+          cada("button", function (b) { b.disabled = false; b.classList.remove("a-carregar"); }, f);
+          delete f.dataset.aEnviar;
+        });
+    });
+  });
+  var esperaServidor = document.querySelector("[data-troca-espera]");
+  if (esperaServidor) esperarTroca(esperaServidor.getAttribute("data-troca-espera"));
 })();

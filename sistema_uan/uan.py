@@ -42,6 +42,57 @@ def _clf(cfg):
                                   tamanho_lote=cfg.tamanho_lote, dispositivo=cfg.dispositivo)
 
 
+def servir(a, cfg) -> None:
+    """Arranca o servidor web num ciclo: a troca de modo pedida na aplicação reinicia-o com a outra base de dados."""
+    import uvicorn
+    from sistema import controlo
+    from sistema.demonstracao import CONTAS, SENHA, caminho_bd, precisa_recriar
+    bd_real = Path(cfg.caminho_bd)
+    bd_demo = caminho_bd(bd_real.parent)
+    originais = {k: os.environ.get(k) for k in ("UAN_BD", "UAN_DEMONSTRACAO", "UAN_MODELO", "UAN_SEGREDO_HASH")}
+    endereco = f"http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}"
+    modo, repor = ("demonstracao" if a.demonstracao else "real"), a.repor
+    try:
+        while True:
+            for k, v in originais.items():  # cada arranque parte da configuração original
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+            if modo == "demonstracao":
+                if not repor and precisa_recriar(bd_demo):
+                    print("Os dados fictícios foram melhorados nesta versão: a base de demonstração vai ser recriada.")
+                    repor = True
+                if repor:
+                    for sufixo in ("", "-wal", "-shm"):
+                        Path(str(bd_demo) + sufixo).unlink(missing_ok=True)
+                os.environ.update(UAN_DEMONSTRACAO="1", UAN_BD=str(bd_demo))
+                os.environ.pop("UAN_MODELO", None)
+                os.environ.setdefault("UAN_SEGREDO_HASH", "demonstracao")
+                print(f"MODO DE DEMONSTRAÇÃO: dados fictícios em {bd_demo}. A base de dados real não é usada.")
+                print(f"Contas: {', '.join(u for u, _, _ in CONTAS)} (palavra-passe: {SENHA})")
+            else:
+                os.environ["UAN_DEMONSTRACAO"] = "0"
+                print(f"MODO REAL: base de dados {bd_real}.")
+            repor = False
+            os.environ["UAN_ENDERECO_SERVIDOR"] = endereco
+            print("A preparar o sistema" + (" e os dados fictícios" if modo == "demonstracao" else "") +
+                  "... aguarde pela mensagem PRONTO antes de abrir o navegador.", flush=True)
+            servidor = uvicorn.Server(uvicorn.Config("sistema.web.app:criar_app", factory=True, host=a.anfitriao,
+                                                     port=a.porta, log_level="warning"))
+            controlo.servidor, controlo.pedido = servidor, None
+            servidor.run()
+            if not controlo.pedido:
+                break
+            modo = controlo.pedido
+            print(f"\nA mudar para o modo {'de demonstração' if modo == 'demonstracao' else 'real'}...\n", flush=True)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        controlo.servidor = None
+    print("Sistema parado.")
+
+
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser(prog="uan")
@@ -66,8 +117,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("utilizador"); p.add_argument("--nome", required=True); p.add_argument("--papel", choices=PAPEIS, default="analista")
     sub.add_parser("copia", help="Cópia de segurança da base de dados para dados\\copias")
     from sistema.recolha import TIPOS as TIPOS_FONTE
-    p = sub.add_parser("fonte-adicionar", help="Acrescenta uma fonte de recolha")
-    p.add_argument("--tipo", required=True, choices=list(TIPOS_FONTE)); p.add_argument("--endereco", required=True)
+    p = sub.add_parser("fonte-adicionar", help="Acrescenta uma ou mais fontes de recolha (tipo detectado automaticamente)")
+    p.add_argument("--tipo", default="auto", choices=["auto"] + list(TIPOS_FONTE))
+    p.add_argument("--endereco", required=True, nargs="+", help="um ou mais endereços, identificadores ou termos (entre aspas)")
     p.add_argument("--nome", default=""); p.add_argument("--max", type=int, default=100)
     sub.add_parser("fontes", help="Lista as fontes de recolha")
     p = sub.add_parser("recolher", help="Recolhe das fontes activas (ou de uma) e classifica o que for novo")
@@ -81,23 +133,7 @@ def main(argv: list[str] | None = None) -> None:
 
     cfg = obter_config()
     if a.cmd == "servir":
-        import uvicorn
-        if a.demonstracao:
-            from sistema.demonstracao import CONTAS, SENHA, caminho_bd
-            bd_demo = caminho_bd(Path(cfg.caminho_bd).parent)
-            if a.repor:
-                for sufixo in ("", "-wal", "-shm"):
-                    Path(str(bd_demo) + sufixo).unlink(missing_ok=True)
-            os.environ.update(UAN_DEMONSTRACAO="1", UAN_BD=str(bd_demo))
-            os.environ.pop("UAN_MODELO", None)
-            os.environ.setdefault("UAN_SEGREDO_HASH", "demonstracao")
-            print(f"MODO DE DEMONSTRAÇÃO: dados fictícios em {bd_demo}. A base de dados real não é usada.")
-            print(f"Contas: {', '.join(u for u, _, _ in CONTAS)} (palavra-passe: {SENHA})")
-        endereco = f"http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}"
-        os.environ["UAN_ENDERECO_SERVIDOR"] = endereco
-        print("A preparar o sistema" + (" e os dados fictícios" if a.demonstracao else "") +
-              "... aguarde pela mensagem PRONTO antes de abrir o navegador.", flush=True)
-        uvicorn.run("sistema.web.app:criar_app", factory=True, host=a.anfitriao, port=a.porta, log_level="warning")
+        servir(a, cfg)
         return
     bd = BaseDados(cfg.caminho_bd)
     if a.cmd == "criar-utilizador":
@@ -114,8 +150,14 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Cópia criada: {bd.copia_seguranca(destino, quem='linha_de_comandos')}")
         return
     if a.cmd == "fonte-adicionar":
-        from sistema.recolha import adicionar_fonte
-        print(f"Fonte {adicionar_fonte(bd, a.tipo, a.endereco, a.nome, 'linha_de_comandos', a.max)} acrescentada.")
+        from sistema.recolha import TIPOS as TF, adicionar_fontes
+        r = adicionar_fontes(bd, "\n".join(a.endereco), "linha_de_comandos", a.tipo, a.nome, a.max)
+        for idf, t, e in r["criadas"]:
+            print(f"Fonte {idf} acrescentada: {TF[t]} · {e}")
+        for e in r["repetidas"]:
+            print(f"Já existia: {e}")
+        for e, m in r["erros"]:
+            print(f"Erro em {e}: {m}")
         return
     if a.cmd == "fontes":
         for f in bd.consultar("SELECT * FROM fontes ORDER BY id_fonte"):

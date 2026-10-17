@@ -2,24 +2,33 @@
 {% block titulo %}Fontes e recolha{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
-  <div><h1>Fontes e recolha</h1><p>Canais e vídeos do YouTube, feeds RSS e sítios web públicos de onde o sistema recolhe publicações novas.</p></div>
+  <div><h1>Fontes e recolha</h1><p>Vídeos, canais, listas e pesquisas do YouTube, feeds RSS, páginas e sítios web públicos de onde o sistema recolhe publicações novas.</p></div>
   <form method="post" action="/fontes/recolher"><input type="hidden" name="csrf" value="{{ sessao.csrf }}">
     <button class="botao" type="submit" {{ 'disabled' if recolha or not fontes or not tem_segredo }}>Recolher todas as fontes activas</button></form>
 </div>
+{% if resultado %}<div class="faixa {{ 'aviso' if 'erro' in resultado else 'ok' }}" role="status">{{ resultado }}</div>{% endif %}
 {% if not tem_segredo %}<div class="faixa perigo">Defina UAN_SEGREDO_HASH no ficheiro uan.env antes de recolher.</div>{% endif %}
 
 <div class="grelha g2">
   <div class="cartao">
-    <h2>Nova fonte</h2>
-    <form method="post" action="/fontes/adicionar">
+    <h2>Novas fontes</h2>
+    <form method="post" action="/fontes/adicionar" data-fontes>
       <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
-      <div class="campo"><label for="f-t">Tipo</label><select id="f-t" name="tipo">{% for k, v in TIPOS_FONTE.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
-      <div class="campo"><label for="f-e">Endereço</label><input id="f-e" type="text" name="endereco" required placeholder="https://… , @canal ou identificador do vídeo">
-        <div class="ajuda">Feed RSS: endereço do feed. Sítio: página inicial ou de secção (o sistema segue as ligações para artigos do mesmo sítio). Canal: @nome ou identificador UC…</div></div>
+      <div class="campo"><label for="f-e">Endereços, identificadores ou termos de pesquisa (um por linha)</label>
+        <textarea id="f-e" name="enderecos" rows="6" required spellcheck="false" placeholder="https://www.youtube.com/watch?v=…
+https://www.youtube.com/@canal
+https://www.youtube.com/playlist?list=PL…
+https://www.jornal.ao/feed/
+https://www.jornal.ao/politica
+manifestação Luanda taxistas"></textarea>
+        <div class="ajuda">Pode colar até 100 linhas de uma vez. O tipo de cada linha é detectado automaticamente; uma linha de texto livre (sem endereço) passa a ser uma pesquisa no YouTube. Linhas começadas por # são ignoradas.</div></div>
+      <ul class="fontes-previa" data-fontes-previa aria-live="polite"></ul>
       <div class="linha-form">
-        <div class="campo"><label for="f-n">Nome</label><input id="f-n" type="text" name="nome" maxlength="80" placeholder="ex.: Jornal X, secção política"></div>
+        <div class="campo"><label for="f-t">Tipo</label><select id="f-t" name="tipo"><option value="auto">Detectar automaticamente</option>{% for k, v in TIPOS_FONTE.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
         <div class="campo"><label for="f-m">Máximo por recolha</label><input id="f-m" type="number" name="max_itens" value="100" min="1" max="2000"></div>
       </div>
+      <div class="campo"><label for="f-n">Nome (opcional)</label><input id="f-n" type="text" name="nome" maxlength="80" placeholder="ex.: Jornal X; com várias linhas, serve de prefixo">
+        <div class="ajuda">Sem nome, cada fonte fica com o seu endereço ou os termos da pesquisa.</div></div>
       <button class="botao mt" type="submit">Acrescentar</button>
     </form>
   </div>
@@ -29,6 +38,7 @@
       <li>Só conteúdo público. Páginas que pedem autenticação são ignoradas, nunca contornadas.</li>
       <li>O sistema respeita o robots.txt de cada sítio, identifica-se como «{{ cfg.recolha_agente[:40] }}…» e espera {{ cfg.recolha_intervalo_s|num(0) }} s entre pedidos ao mesmo sítio.</li>
       <li>Das páginas web guarda o título e os primeiros parágrafos. Comentários carregados por JavaScript (por exemplo, Facebook ou Disqus) não são recolhidos.</li>
+      <li>Pesquisa no YouTube: cada recolha procura os vídeos mais recentes com esses termos (região Angola, língua portuguesa) e lê os seus comentários. Cada pesquisa gasta mais quota da API do que um vídeo.</li>
       <li>YouTube: usa a API oficial e precisa de UAN_YOUTUBE_CHAVE {% if tem_youtube %}<span class="pilula forte">configurada</span>{% else %}<span class="pilula">em falta</span>{% endif %}.</li>
       <li>Cada recolha fica registada como um lote, com a via (API oficial ou página pública), e os autores são anonimizados à entrada.</li>
     </ul>
@@ -57,6 +67,6 @@
       </div>
     </td></tr>{% endfor %}
   </tbody></table></div>
-  {% else %}<div class="vazio v-fontes"><b>Ainda não há fontes</b>Acrescente um feed RSS, um sítio público ou um canal do YouTube.</div>{% endif %}
+  {% else %}<div class="vazio v-fontes"><b>Ainda não há fontes</b>Cole acima um ou vários endereços: vídeos, canais, listas ou pesquisas do YouTube, feeds RSS, páginas ou sítios públicos.</div>{% endif %}
 </div>
 {% endblock %}

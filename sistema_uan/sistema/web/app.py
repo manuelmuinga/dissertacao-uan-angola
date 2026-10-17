@@ -36,7 +36,7 @@ from ..base_dados import BaseDados
 from ..classificador import Classificador, ClassificadorDemonstracao, carregar_classificador
 from ..geografia import PROVINCIAS, localizar_toponimos, mapa as mapa_geo
 from ..config import NOMES_APRESENTACAO, PAPEIS, ROTULOS, Config, obter_config
-from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, recolher_fonte
+from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, adicionar_fontes, recolher_fonte
 from ..servico import (VIAS, classificacao_em_curso, classificar_pendentes, exportar_revisoes,
                        gerar_amostra_controlo, importar, metricas, panorama)
 from ..utilizadores import (ErroAutenticacao, autenticar, criar_sessao, criar_utilizador, definir_activo,
@@ -71,6 +71,7 @@ AVISOS = {
     "email_teste": ("ok", "E-mail de teste enviado. Confirme a caixa de entrada dos destinatários."),
     "relatorio_enviado": ("ok", "Relatório enviado por e-mail aos destinatários definidos."),
     "desfeita": ("ok", "Decisão desfeita. O item voltou à fila."),
+    "aspecto": ("ok", "Aspecto gravado."),
 }
 VIAS_NOMES = {
     "api_oficial": "API oficial da plataforma",
@@ -147,6 +148,25 @@ def realcar(texto: str | None) -> Markup:
     return Markup("").join(out)
 
 
+# Aspecto da interface, escolhido por cada utilizador em Definições (guardado no servidor).
+ASPECTO: dict[str, tuple[str, dict[str, str]]] = {
+    "tema": ("auto", {"auto": "Automático (segue o sistema)", "claro": "Claro", "escuro": "Escuro"}),
+    "cor": ("azul", {"azul": "Azul institucional", "verde": "Verde", "vinho": "Vinho", "petroleo": "Petróleo",
+                     "grafite": "Grafite"}),
+    "menu": ("escuro", {"escuro": "Escuro", "cor": "Da cor principal", "claro": "Claro"}),
+    "cantos": ("arredondados", {"arredondados": "Arredondados", "rectos": "Rectos"}),
+    "movimento": ("normal", {"normal": "Normais", "reduzido": "Reduzidas (sem animações)"}),
+    "mapa": ("vermelho", {"vermelho": "Vermelho", "laranja": "Laranja", "roxo": "Roxo", "azul": "Azul", "verde": "Verde"}),
+}
+PALETAS_MAPA = {"vermelho": ("#f6efe6", "#a3261a"), "laranja": ("#fbf2e4", "#b4530b"), "roxo": ("#f3eff9", "#4b2a8a"),
+                "azul": ("#eef3f8", "#143a5e"), "verde": ("#eef5ef", "#1d5c45")}
+
+
+def _misturar(a: str, b: str, t: float) -> str:
+    ca, cb = (tuple(int(x[i:i + 2], 16) for i in (1, 3, 5)) for x in (a, b))
+    return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(ca, cb))
+
+
 def _ficha_modelo(cfg: Config) -> dict:
     """Ficha do modelo: a da pasta do modelo, se existir (ficha_modelo.json), senão a de referência do sistema."""
     candidatos = []
@@ -187,7 +207,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     """Cria a aplicação. `clf` e `sincrono` servem para os testes."""
     cfg = cfg or obter_config()
     if cfg.demonstracao and clf is None:  # a demonstração nunca carrega o modelo real
-        clf = ClassificadorDemonstracao()
+        from ..demonstracao import ClassificadorSimulado
+        clf = ClassificadorSimulado({})
     bd = BaseDados(cfg.caminho_bd)
     if cfg.demonstracao:
         from ..demonstracao import povoar
@@ -314,12 +335,16 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                 "modelo_versao": estado["clf"].versao if estado["clf"] else None,
                 "progresso": estado["progresso"], "recolha": estado["recolha"], "caminho": request.url.path,
                 "cega_activa": revisao_cega(), "demonstracao": cfg.demonstracao,
-                "tema": request.cookies.get("uan_tema") if request.cookies.get("uan_tema") in ("claro", "escuro") else ""}
+                "troca_disponivel": _troca_disponivel(),
+                "tema": request.cookies.get("uan_tema") if request.cookies.get("uan_tema") in ("claro", "escuro") else "",
+                "aspecto": ler_aspecto(None), "ASPECTO": ASPECTO, "PALETAS_MAPA": PALETAS_MAPA}
         if cfg.demonstracao:
             from ..demonstracao import CONTAS, SENHA
             base["contas_demo"] = [u for u, _, _ in CONTAS]
             base["senha_demo"] = SENHA
         if s:
+            base["aspecto"] = ler_aspecto(s["utilizador"])
+            base["tema"] = "" if base["aspecto"]["tema"] == "auto" else base["aspecto"]["tema"]
             base["visita_pendente"] = bd.definicao(f"visita_vista:{s['utilizador']}", "0") != "1"
             base["n_fila_meus"] = bd.n_fila(s["utilizador"])
             base["n_amostra_meus"] = len(bd.fila_amostra(s["utilizador"], 10**6))
@@ -340,6 +365,20 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         if not url or not url.startswith("/") or url.startswith("//"):
             return "/"
         return url
+
+    def ler_aspecto(utilizador: str | None) -> dict:
+        out = {k: v[0] for k, v in ASPECTO.items()}
+        if utilizador:
+            try:
+                guardado = json.loads(bd.definicao(f"aspecto:{utilizador}", "{}") or "{}")
+            except ValueError:
+                guardado = {}
+            out.update({k: v for k, v in guardado.items() if k in ASPECTO and v in ASPECTO[k][1]})
+        return out
+
+    def _troca_disponivel() -> bool:
+        from .. import controlo
+        return controlo.disponivel()
 
     def revisao_cega() -> bool:
         return bd.definicao("revisao_cega", "0") == "1"
@@ -604,7 +643,59 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         ficha = _ficha_modelo(cfg)
         m = metricas(bd)
         return pagina(request, "modelo.html", {"ficha": ficha, "m": m,
-                                               "a_usar_demo": (estado["clf"] is not None and estado["clf"].nome == "DEMONSTRACAO")})
+                                               "a_usar_demo": (estado["clf"] is not None and estado["clf"].nome in ("DEMONSTRACAO", "SIMULADO"))})
+
+    @app.post("/aspecto")
+    async def gravar_aspecto(request: Request):
+        """Grava as escolhas de aspecto do utilizador (todas ou só algumas, como o botão do tema)."""
+        s = sessao(request)
+        form = await request.form()
+        verificar_csrf(s, str(form.get("csrf", "")))
+        actual = ler_aspecto(s["utilizador"])
+        repor = form.get("repor") == "1"
+        if repor:
+            actual = {k: v[0] for k, v in ASPECTO.items()}
+        for k, (_, opcoes) in ([] if repor else ASPECTO.items()):
+            v = str(form.get(k, ""))
+            if v:
+                if v not in opcoes:
+                    raise HTTPException(400, f"Valor inválido para {k}.")
+                actual[k] = v
+        bd.definir(f"aspecto:{s['utilizador']}", json.dumps(actual), s["utilizador"])
+        if request.headers.get("X-Pedido") == "fetch":
+            resp = JSONResponse({"ok": True, "aspecto": actual})
+        else:
+            resp = ir("/definicoes", "aspecto")
+        # o ecrã de entrada (sem sessão) usa o tema do último utilizador neste navegador
+        if actual["tema"] == "auto":
+            resp.delete_cookie("uan_tema", path="/")
+        else:
+            resp.set_cookie("uan_tema", actual["tema"], max_age=31536000, path="/", samesite="lax")
+        return resp
+
+    # ------------------------------------------------------------------ modo do sistema
+    @app.get("/sistema/estado")
+    def sistema_estado():
+        """Usado pelo ecrã de espera durante a troca de modo (sem dados, sem sessão)."""
+        return {"modo": "demonstracao" if cfg.demonstracao else "real", "pronto": True}
+
+    @app.post("/sistema/modo")
+    def sistema_modo(request: Request, csrf: str = Form(""), modo: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        from .. import controlo
+        actual = "demonstracao" if cfg.demonstracao else "real"
+        if modo not in controlo.MODOS or modo == actual:
+            raise HTTPException(400, "Modo inválido ou já em uso.")
+        if not controlo.disponivel():
+            raise HTTPException(409, "A troca de modo só funciona quando o sistema é arrancado com «python uan.py servir». "
+                                     "Pare o servidor e arranque de novo" + (" sem" if modo == "real" else " com") +
+                                     " a opção --demonstracao.")
+        bd.auditar(s["utilizador"], "troca_de_modo", {"de": actual, "para": modo})
+        controlo.pedir_troca(modo)
+        if request.headers.get("X-Pedido") == "fetch":
+            return {"ok": True, "modo": modo}
+        return pagina(request, "trocar_modo.html", {"modo_novo": modo})
 
     @app.post("/visita/vista")
     def visita_vista(request: Request, csrf: str = Form("")):
@@ -647,19 +738,47 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                                 AND l.descricao LIKE 'recolha automática%') AS recolhas
                                FROM fontes f ORDER BY f.activa DESC, f.id_fonte""")
         return pagina(request, "fontes.html", {"fontes": rows, "TIPOS_FONTE": TIPOS_FONTE,
+                                               "resultado": request.query_params.get("resultado", "")[:400],
                                                "tem_youtube": bool(cfg.chave_youtube), "tem_segredo": bool(cfg.segredo_hash),
                                                "cfg": cfg})
 
     @app.post("/fontes/adicionar")
-    def fontes_adicionar(request: Request, csrf: str = Form(""), tipo: str = Form(...), endereco: str = Form(...),
-                         nome: str = Form(""), max_itens: int = Form(100)):
+    def fontes_adicionar(request: Request, csrf: str = Form(""), tipo: str = Form("auto"), endereco: str = Form(""),
+                         enderecos: str = Form(""), nome: str = Form(""), max_itens: int = Form(100)):
         s = sessao(request, "supervisor")
         verificar_csrf(s, csrf)
+        texto = "\n".join(x for x in (enderecos, endereco) if x.strip())
+        if not texto.strip():
+            raise HTTPException(400, "Indique pelo menos um endereço, identificador ou termo de pesquisa.")
+        if tipo != "auto" and tipo not in TIPOS_FONTE:
+            raise HTTPException(400, "Tipo de fonte desconhecido.")
         try:
-            adicionar_fonte(bd, tipo, endereco, nome, s["utilizador"], max_itens)
+            r = adicionar_fontes(bd, texto, s["utilizador"], tipo, nome, max_itens)
         except ValueError as e:
             raise HTTPException(400, str(e))
-        return ir("/fontes", "fonte")
+        if not r["criadas"] and r["erros"] and not r["repetidas"]:
+            raise HTTPException(400, "Nenhuma fonte acrescentada. " + "; ".join(f"{l}: {m}" for l, m in r["erros"][:5]))
+        partes = [f"{len(r['criadas'])} fonte(s) acrescentada(s)"]
+        if r["repetidas"]:
+            partes.append(f"{len(r['repetidas'])} já existia(m)")
+        if r["erros"]:
+            partes.append(f"{len(r['erros'])} com erro: " + "; ".join(f"{l[:40]} ({m})" for l, m in r["erros"][:3]))
+        return ir("/fontes?" + urlencode({"resultado": ". ".join(partes) + "."}))
+
+    @app.post("/fontes/detectar")
+    def fontes_detectar(request: Request, csrf: str = Form(""), enderecos: str = Form("")):
+        """Pré-visualização: o tipo que cada linha vai ter, antes de gravar."""
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        from ..recolha import detectar_tipo, normalizar_endereco
+        existentes = {(r["tipo"], r["endereco"]) for r in bd.consultar("SELECT tipo, endereco FROM fontes")}
+        out = []
+        for l in [x.strip() for x in enderecos.splitlines() if x.strip() and not x.strip().startswith("#")][:100]:
+            t = detectar_tipo(l)
+            e = normalizar_endereco(t, l)
+            out.append({"linha": l[:200], "tipo": t, "tipo_nome": TIPOS_FONTE[t], "endereco": e[:200],
+                        "repetida": (t, e) in existentes})
+        return {"linhas": out}
 
     @app.post("/fontes/{id_fonte}/estado")
     def fontes_estado(request: Request, id_fonte: int, csrf: str = Form(""), activa: str = Form("0")):
@@ -724,33 +843,36 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                          SELECT id_alerta, ?, ? FROM alertas""", (s["utilizador"], datetime.now(timezone.utc).isoformat()))
         return ir("/alertas", "alertas_vistos")
 
-    def _cor(taxa: float | None, maximo: float, suficiente: bool, mencoes: int) -> str:
+    def _cor(taxa: float | None, maximo: float, suficiente: bool, mencoes: int, paleta: str = "vermelho") -> str:
         if not mencoes:
             return "#eceee9"
         if not suficiente or taxa is None:
             return "url(#insuficiente)"
+        a, b = PALETAS_MAPA.get(paleta, PALETAS_MAPA["vermelho"])
         t = 0.0 if maximo <= 0 else min(1.0, taxa / maximo)
-        a, b = (0xF6, 0xEF, 0xE6), (0xA3, 0x26, 0x1A)
-        return "#" + "".join(f"{round(x + (y - x) * (0.12 + 0.88 * t)):02x}" for x, y in zip(a, b)) if taxa > 0 else "#f6efe6"
+        return _misturar(a, b, 0.12 + 0.88 * t) if taxa > 0 else a
 
-    def _preparar_mapa(d: dict, geo: dict) -> None:
+    def _preparar_mapa(d: dict, geo: dict, paleta: str = "vermelho") -> None:
+        a, b = PALETAS_MAPA.get(paleta, PALETAS_MAPA["vermelho"])
+        d["escala"] = (a, _misturar(a, b, 0.45), b)
         for l in d["provincias"]:
             g = geo["provincias"][l["codigo"]]
-            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"], cor=_cor(l["taxa"], d["max_taxa"], l["suficiente"], l["mencoes"]))
+            l.update(d_svg=g["d"], cx=g["cx"], cy=g["cy"],
+                     cor=_cor(l["taxa"], d["max_taxa"], l["suficiente"], l["mencoes"], paleta))
 
-    def _dados_mapa(de, ate, dias, modo, categoria):
+    def _dados_mapa(de, ate, dias, modo, categoria, paleta="vermelho"):
         per = al.periodo(de, ate, dias)
         cat = categoria if categoria in ROTULOS and categoria != "Normal" else None
         d = al.dados_mapa(bd, per, modo, cat)
         geo = mapa_geo()
-        _preparar_mapa(d, geo)
+        _preparar_mapa(d, geo, paleta)
         return per, cat, d, geo
 
     @app.get("/mapa", response_class=HTMLResponse)
     def ver_mapa(request: Request, de: str = "", ate: str = "", dias: str = "", modo: str = "confirmadas",
                  categoria: str = ""):
-        sessao(request)
-        per, cat, d, geo = _dados_mapa(de, ate, dias, modo, categoria)
+        s = sessao(request)
+        per, cat, d, geo = _dados_mapa(de, ate, dias, modo, categoria, ler_aspecto(s["utilizador"])["mapa"])
         serie = al.serie(bd, per, d["modo"], cat)
         return pagina(request, "mapa.html", {"m": d, "geo": geo, "per": per, "modo": d["modo"], "categoria": cat or "",
                                              "fonte_geo": geo["fonte"], "serie": serie})
@@ -760,7 +882,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                           categoria: str = ""):
         """Mapa autónomo, com título, período, legenda e fonte, para descarregar (SVG) ou converter em PNG."""
         s = sessao(request)
-        per, cat, d, geo = _dados_mapa(de, ate, dias, modo, categoria)
+        per, cat, d, geo = _dados_mapa(de, ate, dias, modo, categoria, ler_aspecto(s["utilizador"])["mapa"])
         bd.auditar(s["utilizador"], "exportacao_mapa", {"periodo": per.rotulo(), "modo": d["modo"]})
         corpo = tpl.env.get_template("mapa_exportar.svg").render(
             m=d, geo=geo, per=per, categoria=NOMES_APRESENTACAO.get(cat, "") if cat else "",
@@ -774,7 +896,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         per = al.periodo(de, ate, dias)
         rel = al.relatorio(bd, per)
         geo = mapa_geo()
-        _preparar_mapa(rel["mapa"], geo)
+        _preparar_mapa(rel["mapa"], geo, ler_aspecto(s["utilizador"])["mapa"])
         bd.auditar(s["utilizador"], "relatorio", {"periodo": per.rotulo()})
         return pagina(request, "relatorio.html", {"rel": rel, "per": per, "geo": geo, "m": rel["mapa"],
                                                   "serie": al.serie(bd, per, "confirmadas"),
@@ -945,7 +1067,9 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     # ------------------------------------------------------------------ definições
     @app.get("/definicoes", response_class=HTMLResponse)
     def definicoes(request: Request):
-        sessao(request, "supervisor")
+        s = sessao(request)
+        if s["papel"] != "supervisor":
+            return pagina(request, "definicoes.html", {"so_aspecto": True})
         antigas = bd.consultar(
             """SELECT COUNT(*) AS n FROM publicacoes WHERE recolhido_em < ? AND id_pub NOT IN (SELECT id_pub FROM revisoes)""",
             ((datetime.now(timezone.utc) - timedelta(days=cfg.dias_conservacao)).isoformat(),))[0]["n"]

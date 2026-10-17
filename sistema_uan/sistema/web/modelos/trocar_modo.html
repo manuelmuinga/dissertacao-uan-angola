@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}A mudar de modo{% endblock %}
+{% block conteudo %}
+<div class="cartao vazio v-dados" data-troca-espera="{{ modo_novo }}">
+  <b>A mudar para o modo {{ 'de demonstração' if modo_novo == 'demonstracao' else 'real' }}</b>
+  O servidor está a reiniciar com a outra base de dados. Esta página abre a entrada assim que estiver pronto
+  (normalmente menos de um minuto; na primeira demonstração, o tempo de criar os dados fictícios).
+</div>
+{% endblock %}

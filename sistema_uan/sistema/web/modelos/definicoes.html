@@ -1,8 +1,61 @@
 {% extends "base.html" %}
 {% block titulo %}Definições{% endblock %}
 {% block conteudo %}
-<div class="cabecalho"><div><h1>Definições</h1><p>Opções de avaliação, conservação de dados e cópias de segurança.</p></div></div>
-<div class="grelha g2">
+<div class="cabecalho"><div><h1>Definições</h1><p>{{ 'O aspecto do sistema, só para si.' if so_aspecto else 'O aspecto do sistema, o modo de funcionamento, a avaliação, os alertas, a conservação de dados e as cópias de segurança.' }}</p></div></div>
+
+<div class="cartao seccao-aspecto" id="aspecto">
+  <div class="cabecalho-cartao"><h2>Aspecto</h2><span class="suave">Só para a sua conta. As alterações aplicam-se de imediato.</span></div>
+  <form method="post" action="/aspecto" data-aspecto>
+    <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <div class="aspecto-grelha">
+      <fieldset class="opcoes"><legend>Tema</legend>
+        {% for v, n in ASPECTO.tema[1].items() %}<label class="opcao"><input type="radio" name="tema" value="{{ v }}" {{ 'checked' if aspecto.tema == v }}>
+          <span class="amostra-tema tema-{{ v }}" aria-hidden="true"><i></i><i></i></span>{{ n }}</label>{% endfor %}
+      </fieldset>
+      <fieldset class="opcoes"><legend>Cor principal</legend>
+        {% for v, n in ASPECTO.cor[1].items() %}<label class="opcao"><input type="radio" name="cor" value="{{ v }}" {{ 'checked' if aspecto.cor == v }}>
+          <span class="amostra-cor-principal cor-{{ v }}" aria-hidden="true"></span>{{ n }}</label>{% endfor %}
+      </fieldset>
+      <fieldset class="opcoes"><legend>Menu lateral</legend>
+        {% for v, n in ASPECTO.menu[1].items() %}<label class="opcao"><input type="radio" name="menu" value="{{ v }}" {{ 'checked' if aspecto.menu == v }}>
+          <span class="amostra-menu menu-{{ v }}" aria-hidden="true"><i></i></span>{{ n }}</label>{% endfor %}
+      </fieldset>
+      <fieldset class="opcoes"><legend>Cores do mapa</legend>
+        {% for v, n in ASPECTO.mapa[1].items() %}<label class="opcao"><input type="radio" name="mapa" value="{{ v }}" {{ 'checked' if aspecto.mapa == v }}>
+          <span class="amostra-escala" style="background: linear-gradient(90deg, {{ PALETAS_MAPA[v][0] }}, {{ PALETAS_MAPA[v][1] }})" aria-hidden="true"></span>{{ n }}</label>{% endfor %}
+      </fieldset>
+      <fieldset class="opcoes"><legend>Cantos</legend>
+        {% for v, n in ASPECTO.cantos[1].items() %}<label class="opcao"><input type="radio" name="cantos" value="{{ v }}" {{ 'checked' if aspecto.cantos == v }}>
+          <span class="amostra-cantos cantos-{{ v }}" aria-hidden="true"></span>{{ n }}</label>{% endfor %}
+      </fieldset>
+      <fieldset class="opcoes"><legend>Animações</legend>
+        {% for v, n in ASPECTO.movimento[1].items() %}<label class="opcao"><input type="radio" name="movimento" value="{{ v }}" {{ 'checked' if aspecto.movimento == v }}>{{ n }}</label>{% endfor %}
+      </fieldset>
+    </div>
+    <div class="accoes mt">
+      <button class="botao" type="submit">Gravar</button>
+      <button class="botao secundario" type="submit" name="repor" value="1">Repor as predefinições</button>
+    </div>
+  </form>
+</div>
+
+{% if not so_aspecto %}
+<div class="grelha g2 seccao">
+  <div class="cartao" id="modo">
+    <h2>Modo do sistema</h2>
+    <p>Em uso: <b>{{ 'demonstração (dados fictícios, base de dados separada, sem e-mails)' if demonstracao else 'real (dados recolhidos e importados)' }}</b>.</p>
+    {% if troca_disponivel %}
+    <form method="post" action="/sistema/modo" data-trocar-modo="{{ 'real' if demonstracao else 'demonstracao' }}"
+          data-confirmar="{{ 'Mudar para o sistema real? O servidor reinicia com a base de dados real e terá de entrar com a sua conta real.' if demonstracao else 'Mudar para a demonstração? O servidor reinicia com dados fictícios; os dados reais ficam intactos. Entre depois com demo.supervisor.' }}">
+      <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+      <input type="hidden" name="modo" value="{{ 'real' if demonstracao else 'demonstracao' }}">
+      <button class="botao" type="submit">Mudar para {{ 'o sistema real' if demonstracao else 'a demonstração' }}</button>
+    </form>
+    <p class="ajuda">O servidor reinicia na mesma janela e a página abre a entrada quando estiver pronto. As duas bases de dados nunca se misturam.</p>
+    {% else %}
+    <p class="ajuda">A troca está disponível quando o sistema é arrancado com <span class="mono">python uan.py servir</span>.</p>
+    {% endif %}
+  </div>
   <div class="cartao">
     <h2>Revisão cega</h2>
     <p>Com a revisão cega activa, os analistas não vêem a sugestão nem as probabilidades do modelo. A fila continua ordenada por prioridade. Use-a na avaliação com analistas, para que o κ analista–sistema não seja inflacionado pela sugestão.</p>
@@ -62,4 +115,5 @@
     <p class="ajuda">Estes valores mudam-se no ficheiro uan.env e exigem reiniciar o servidor.</p>
   </div>
 </div>
+{% endif %}
 {% endblock %}

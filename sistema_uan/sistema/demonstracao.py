@@ -3,12 +3,14 @@
     python uan.py servir --demonstracao
 
 - usa sempre outra base de dados (dados/demonstracao.db), nunca a base real;
-- os textos são inventados a partir de modelos de frase e lugares; nenhum vem de redes sociais;
-- usa o classificador de demonstração (palavras-chave), não o BERTimbau;
+- os textos são inventados (ver demonstracao_dados.py): conversas fictícias com temas, lugares,
+  registos e episódios; nenhum vem de redes sociais;
+- as sugestões vêm de um classificador SIMULADO, que acerta e erra como um modelo real
+  (erra mais na Desinformação e confunde protesto legal com mobilização), não do BERTimbau;
 - nenhum e-mail sai do sistema: o servidor de e-mail é ignorado neste modo;
 - todas as páginas mostram a faixa "Demonstração".
 
-Contas criadas: demo.supervisor e demo.analista, palavra-passe "demonstracao".
+Contas criadas: demo.supervisor, demo.analista e demo.revisor, palavra-passe "demonstracao".
 """
 
 from __future__ import annotations
@@ -19,85 +21,75 @@ from pathlib import Path
 
 from . import alertas as al
 from .base_dados import BaseDados
-from .classificador import ClassificadorDemonstracao
+from .classificador import Classificador, ClassificadorDemonstracao, Resultado
+from .config import ROTULOS
 from .servico import classificar_pendentes, importar_registos, preparar_registos
 from .utilizadores import criar_utilizador
+from .demonstracao_dados import PLATAFORMAS, gerar
 
 SENHA = "demonstracao"
 CONTAS = (("demo.supervisor", "Supervisor (demonstração)", "supervisor"),
           ("demo.analista", "Analista (demonstração)", "analista"),
           ("demo.revisor", "Segundo analista (demonstração)", "analista"))
 SEGREDO = "demonstracao-sem-dados-reais"
-
-# Lugares por província (pesos aproximados ao volume de conversa); None = sem lugar mencionado.
-LUGARES = {
-    "Luanda": 30, "Cacuaco": 5, "Viana": 6, "Benguela": 10, "Lobito": 6, "Huambo": 8, "Lubango": 7, "Cabinda": 6,
-    "Malanje": 4, "Uíge": 4, "Saurimo": 2, "Dundo": 2, "Luena": 2, "Menongue": 2, "Ondjiva": 2, "Namibe": 3,
-    "Soyo": 2, "Sumbe": 2, "N'dalatando": 2, "Kuito": 3, "Caxito": 2,
-}
-FRASES = {
-    "Mobilizacao": [
-        "Vamos todos amanhã às 9h à praça de {p}, tragam tudo e quem não aparecer é traidor",
-        "Vamos todos para a rua em {p}, tragam paus e pedras, amanhã às 10h",
-        "Quem não aparecer amanhã às 8h no largo de {p} vai ver, vamos todos fechar a estrada",
-    ],
-    "Odio": [
-        "Esses de {p} não merecem estar aqui, são todos iguais, fora daqui",
-        "São todos uns ladrões os de {p}, não merecem nada, fora daqui com eles",
-        "Gente de {p} não merecem respeito, são todos iguais",
-    ],
-    "Desinformacao": [
-        "URGENTE: fonte interna diz que em {p} a água foi envenenada, partilha antes que apaguem",
-        "Estão a esconder a verdade sobre {p}: fonte interna confirma que os números são falsos",
-        "Partilha antes que apaguem! Em {p} estão a esconder o surto, urgente",
-    ],
-    "Normal": [
-        "Hoje o trânsito em {p} estava bom, finalmente chegaram as obras",
-        "Alguém sabe se a farmácia de {p} abre ao domingo?",
-        "Bom jogo ontem em {p}, parabéns à equipa",
-        "A feira de {p} tinha muita fruta boa esta semana",
-        "O mercado de {p} está mais caro, mas ainda se compra",
-        "Parabéns aos estudantes de {p} pela formatura",
-        "Choveu bastante hoje em {p}, cuidado nas estradas",
-        "Que saudades do funge da minha avó",
-        "Alguém recomenda um bom mecânico?",
-        "Excelente reportagem, obrigado pela informação",
-    ],
-}
+VERSAO_DADOS = "3"  # mudar quando o gerador mudar: a base de demonstração antiga é recriada
 
 
-def _sortear(rnd: random.Random, pesos: dict) -> str:
-    return rnd.choices(list(pesos), weights=list(pesos.values()))[0]
+def precisa_recriar(caminho: Path) -> bool:
+    """True se a base de demonstração existe mas foi criada por uma versão anterior do gerador."""
+    import sqlite3
+    if not Path(caminho).exists():
+        return False
+    try:
+        with sqlite3.connect(caminho) as c:
+            v = c.execute("SELECT valor FROM definicoes WHERE chave = 'demonstracao_versao'").fetchone()
+    except sqlite3.Error:
+        return True
+    return not v or v[0] != VERSAO_DADOS
+
+# Taxa de acerto do classificador simulado por categoria (próxima do que o modelo faz em conteúdo
+# angolano, um pouco melhor para a demonstração ter uma fila útil).
+ACERTO_SIMULADO = {"Normal": 0.93, "Desinformacao": 0.6, "Odio": 0.7, "Mobilizacao": 0.72}
+
+
+class ClassificadorSimulado(Classificador):
+    """Sugestões fictícias: conhece a categoria pretendida de cada texto gerado e erra de propósito.
+
+    Textos que não conhece (por exemplo, importados depois) vão para o classificador de palavras-chave.
+    """
+
+    nome = "SIMULADO"
+    versao = "demonstracao-2"
+
+    def __init__(self, pretendidas: dict[str, str], semente: int = 5):
+        self.pretendidas, self.semente = pretendidas, semente
+        self._reserva = ClassificadorDemonstracao()
+
+    def _um(self, texto: str) -> Resultado:
+        real = self.pretendidas[texto]
+        rnd = random.Random(f"{self.semente}:{texto}")
+        ameacas = [c for c in ROTULOS if c != "Normal"]
+        if rnd.random() < ACERTO_SIMULADO[real]:
+            prevista = real
+        elif real == "Normal":
+            prevista = rnd.choice(ameacas)
+        else:
+            prevista = "Normal" if rnd.random() < 0.7 else rnd.choice([c for c in ameacas if c != real])
+        p = rnd.uniform(0.46, 0.93)
+        resto = [rnd.random() + (0.6 if c == real and c != prevista else 0) for c in ROTULOS if c != prevista]
+        soma = sum(resto)
+        outras = iter(r / soma * (1 - p) for r in resto)
+        return Resultado({c: (p if c == prevista else next(outras)) for c in ROTULOS})
+
+    def classificar(self, textos: list[str]) -> list[Resultado]:
+        desconhecidos = [t for t in textos if t not in self.pretendidas]
+        reserva = dict(zip(desconhecidos, self._reserva.classificar(desconhecidos))) if desconhecidos else {}
+        return [self._um(t) if t in self.pretendidas else reserva[t] for t in textos]
 
 
 def gerar_registos(hoje, semanas: int = 16, semente: int = 7) -> list[tuple[dict, str]]:
-    """(registo bruto, categoria pretendida). Crescimento recente em Benguela e Luanda, descida na Huíla."""
-    rnd = random.Random(semente)
-    out = []
-    n = 0
-    for s in range(semanas):
-        recente = semanas - s  # 1 = última semana
-        for _ in range(rnd.randint(55, 85) + 3 * s):
-            dia = hoje - timedelta(days=(semanas - 1 - s) * 7 + rnd.randint(0, 6))
-            lugar = _sortear(rnd, LUGARES) if rnd.random() > 0.18 else None
-            p_ameaca = 0.22
-            if lugar in ("Benguela", "Lobito") and recente <= 3:
-                p_ameaca = 0.55
-            elif lugar in ("Luanda", "Viana", "Cacuaco") and recente <= 2:
-                p_ameaca = 0.4
-            elif lugar == "Lubango" and recente <= 4:
-                p_ameaca = 0.08
-            cat = "Normal"
-            if rnd.random() < p_ameaca:
-                cat = _sortear(rnd, {"Mobilizacao": 3, "Odio": 3, "Desinformacao": 4})
-            frases = FRASES[cat]
-            texto = rnd.choice([f for f in frases if ("{p}" in f) == bool(lugar)] or frases)
-            texto = texto.format(p=lugar or "aqui")
-            n += 1
-            out.append(({"id": f"demo-{n:05d}", "authorDisplayName": f"@exemplo{rnd.randint(1, 400)}",
-                         "textDisplay": f"{texto} [{n}]", "publishedAt": dia.isoformat(),
-                         "contexto": "Vídeo fictício de demonstração"}, cat))
-    return out
+    """(registo bruto, categoria pretendida); compatível com versões anteriores."""
+    return [(r, c) for r, c, _ in gerar(hoje, semanas, semente)]
 
 
 def povoar(bd: BaseDados, hoje=None) -> dict:
@@ -109,12 +101,22 @@ def povoar(bd: BaseDados, hoje=None) -> dict:
     for u, nome, papel in CONTAS:
         if not bd.consultar("SELECT 1 FROM utilizadores WHERE utilizador = ?", (u,)):
             criar_utilizador(bd, u, nome, papel, SENHA, quem="demonstracao")
-    regs = gerar_registos(hoje)
-    brutos, plataforma = [r for r, _ in regs], "YouTube (fictício)"
-    pretendida = {p["id_pub"]: c for p, (_, c) in zip(preparar_registos(brutos, plataforma, SEGREDO), regs)}
-    importar_registos(bd, brutos, plataforma, "manual", SEGREDO, "Dados fictícios do modo de demonstração",
-                      quem="demonstracao")
-    classificar_pendentes(bd, ClassificadorDemonstracao(), limite=10**9)
+    regs = gerar(hoje)
+    # um lote por plataforma e por mês, como numa recolha regular
+    grupos: dict[tuple[str, str], list[tuple[dict, str]]] = {}
+    for r, c, plat in regs:
+        bloco = r["publishedAt"][:7]
+        grupos.setdefault((plat, bloco), []).append((r, c))
+    pretendida: dict[str, str] = {}
+    por_texto: dict[str, str] = {}
+    for (plat, bloco), itens in sorted(grupos.items(), key=lambda x: (x[0][1], x[0][0])):
+        brutos = [r for r, _ in itens]
+        for prep, (_, c) in zip(preparar_registos(brutos, plat, SEGREDO), itens):
+            pretendida[prep["id_pub"]] = c
+            por_texto[prep["texto"]] = c
+        importar_registos(bd, brutos, plat, PLATAFORMAS[plat][0], SEGREDO,
+                          f"Dados fictícios · {plat} · {bloco}", quem="demonstracao")
+    classificar_pendentes(bd, ClassificadorSimulado(por_texto), limite=10**9)
     linhas = bd.consultar("""SELECT p.id_pub, k.categoria, substr(COALESCE(p.data_publicacao, p.recolhido_em), 1, 10) AS dia
                              FROM publicacoes p JOIN classificacoes k ON k.id_pub = p.id_pub ORDER BY k.prioridade DESC""")
     revistas = 0
@@ -142,6 +144,7 @@ def povoar(bd: BaseDados, hoje=None) -> dict:
             c.execute("""INSERT OR IGNORE INTO alertas_vistos(id_alerta, utilizador, visto_em)
                          SELECT id_alerta, ?, criado_em FROM alertas WHERE substr(criado_em, 1, 10) < ?""", (u, limite))
     bd.definir("demonstracao", "1", "demonstracao")
+    bd.definir("demonstracao_versao", VERSAO_DADOS, "demonstracao")
     bd.auditar("demonstracao", "demonstracao_criada", {"publicacoes": len(regs), "revistas": revistas,
                                                        "alertas_tendencia": len(tend)})
     return {"criada": True, "publicacoes": len(regs), "revistas": revistas, "alertas_tendencia": len(tend)}
