@@ -34,7 +34,7 @@ from pathlib import Path
 
 from sistema.base_dados import BaseDados
 from sistema.classificador import carregar_classificador
-from sistema.config import PAPEIS, ROTULOS, obter_config
+from sistema.config import PAPEIS, RAIZ, ROTULOS, obter_config
 from sistema.servico import VIAS, classificar_pendentes, exportar_revisoes, importar, metricas
 
 
@@ -76,6 +76,37 @@ def _apagar_base(caminho: Path) -> bool:
             c.close()
 
 
+def verificar_config(cfg) -> None:
+    from sistema.config import DO_FICHEIRO, ficheiro_env
+    f = ficheiro_env()
+    print(f"Pasta do sistema: {RAIZ}")
+    if f.exists():
+        print(f"Ficheiro de configuração: {f}" + ("   (tem .txt no fim; funciona, mas pode renomeá-lo para uan.env)"
+                                                   if f.suffix == ".txt" else ""))
+    else:
+        outros = sorted(p.name for p in RAIZ.glob("uan*env*"))
+        print(f"Ficheiro de configuração: NÃO EXISTE ({f})")
+        print(f"  Ficheiros parecidos nesta pasta: {', '.join(outros) or 'nenhum'}")
+
+    def estado(nome, valor, obrigatorio=False):
+        origem = "uan.env" if nome in DO_FICHEIRO else "cmd (set)"
+        if valor:
+            print(f"  [ok]  {nome:<20} definido ({len(valor)} caracteres, vem de {origem})")
+        else:
+            print(f"  [{'!!' if obrigatorio else '--'}]  {nome:<20} vazio" + ("  <- necessário para recolher" if obrigatorio else ""))
+    estado("UAN_SEGREDO_HASH", cfg.segredo_hash, True)
+    estado("UAN_YOUTUBE_CHAVE", cfg.chave_youtube)
+    estado("UAN_CHAVE_API", cfg.chave_api)
+    if cfg.caminho_modelo:
+        existe = Path(cfg.caminho_modelo).is_dir()
+        print(f"  [{'ok' if existe else '!!'}]  UAN_MODELO           {cfg.caminho_modelo}"
+              + ("" if existe else "  <- a pasta não existe: deixe UAN_MODELO= vazio ou copie o modelo para lá"))
+    else:
+        print("  [--]  UAN_MODELO           vazio (classificador de demonstração, por palavras-chave)")
+    print(f"  Base de dados: {cfg.caminho_bd}")
+    print("Depois de alterar o uan.env, reinicie o servidor (Ctrl+C e python uan.py servir).")
+
+
 def servir(a, cfg) -> None:
     """Arranca o servidor web num ciclo: a troca de modo pedida na aplicação reinicia-o com a outra base de dados."""
     import uvicorn
@@ -83,7 +114,10 @@ def servir(a, cfg) -> None:
     from sistema.demonstracao import CONTAS, SENHA, caminho_bd, precisa_recriar
     bd_real = Path(cfg.caminho_bd)
     bd_demo = caminho_bd(bd_real.parent)
-    originais = {k: os.environ.get(k) for k in ("UAN_BD", "UAN_DEMONSTRACAO", "UAN_MODELO", "UAN_SEGREDO_HASH")}
+    from sistema.config import DO_FICHEIRO, recarregar_env
+    # só o que veio do cmd; o que vem do uan.env é lido de novo em cada arranque
+    originais = {k: (None if k in DO_FICHEIRO else os.environ.get(k))
+                 for k in ("UAN_BD", "UAN_DEMONSTRACAO", "UAN_MODELO", "UAN_SEGREDO_HASH")}
     endereco = f"http://{'127.0.0.1' if a.anfitriao == '0.0.0.0' else a.anfitriao}:{a.porta}"
     modo, repor = ("demonstracao" if a.demonstracao else "real"), a.repor
     try:
@@ -93,6 +127,7 @@ def servir(a, cfg) -> None:
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
+            recarregar_env()  # alterações ao uan.env contam a partir deste arranque (também ao mudar de modo)
             if modo == "demonstracao":
                 if not repor and precisa_recriar(bd_demo):
                     print("Os dados fictícios foram melhorados nesta versão: a base de demonstração vai ser recriada.")
@@ -154,6 +189,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("utilizador")
     p.add_argument("--temporaria", action="store_true", help="gera uma palavra-passe temporária, a mudar ao entrar")
     p.add_argument("--demonstracao", action="store_true", help="na base de demonstração (dados\\demonstracao.db)")
+    sub.add_parser("verificar-config", help="Mostra que ficheiro uan.env é lido e que valores estão definidos (sem os mostrar)")
     sub.add_parser("copia", help="Cópia de segurança da base de dados para dados\\copias")
     from sistema.recolha import TIPOS as TIPOS_FONTE
     p = sub.add_parser("fonte-adicionar", help="Acrescenta uma ou mais fontes de recolha (tipo detectado automaticamente)")
@@ -171,6 +207,9 @@ def main(argv: list[str] | None = None) -> None:
     a = ap.parse_args(argv)
 
     cfg = obter_config()
+    if a.cmd == "verificar-config":
+        verificar_config(cfg)
+        return
     if a.cmd == "servir":
         servir(a, cfg)
         return

@@ -7,7 +7,7 @@
     <button class="botao" type="submit" {{ 'disabled' if recolha or not fontes or not tem_segredo }}>Recolher todas as fontes activas</button></form>
 </div>
 {% if resultado %}<div class="faixa {{ 'aviso' if 'erro' in resultado else 'ok' }}" role="status">{{ resultado }}</div>{% endif %}
-{% if not tem_segredo %}<div class="faixa perigo">Defina UAN_SEGREDO_HASH no ficheiro uan.env antes de recolher.</div>{% endif %}
+{% if not tem_segredo %}<div class="faixa perigo">O servidor não encontrou UAN_SEGREDO_HASH. Preencha-o no ficheiro <span class="mono">uan.env</span> (na mesma pasta que <span class="mono">uan.py</span>) e reinicie o servidor: <kbd>Ctrl</kbd>+<kbd>C</kbd> e <span class="mono">python uan.py servir</span>. Para confirmar o que o sistema lê: <span class="mono">python uan.py verificar-config</span>.</div>{% endif %}
 
 <div class="grelha g2">
   <div class="cartao">

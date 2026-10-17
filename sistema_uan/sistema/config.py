@@ -28,9 +28,21 @@ NOMES_APRESENTACAO = {
 PAPEIS: tuple[str, ...] = ("analista", "supervisor")
 
 
+DO_FICHEIRO: set[str] = set()  # variáveis que vieram do uan.env (e não do cmd)
+
+
+def ficheiro_env() -> Path:
+    """Caminho do uan.env. O Bloco de Notas grava muitas vezes «uan.env.txt»: também serve."""
+    caminho = Path(os.getenv("UAN_ENV", RAIZ / "uan.env"))
+    alternativo = caminho.with_name(caminho.name + ".txt")
+    if not caminho.exists() and alternativo.exists():
+        return alternativo
+    return caminho
+
+
 def carregar_env(caminho: Path | None = None) -> list[str]:
     """Lê `uan.env` e define as variáveis que ainda não existem no ambiente."""
-    caminho = Path(caminho or os.getenv("UAN_ENV", RAIZ / "uan.env"))
+    caminho = Path(caminho) if caminho else ficheiro_env()
     definidas = []
     if not caminho.exists():
         return definidas
@@ -43,7 +55,16 @@ def carregar_env(caminho: Path | None = None) -> list[str]:
         if nome and nome not in os.environ:
             os.environ[nome] = valor
             definidas.append(nome)
+    DO_FICHEIRO.update(definidas)
     return definidas
+
+
+def recarregar_env() -> list[str]:
+    """Volta a ler o uan.env (as variáveis definidas no cmd continuam a prevalecer)."""
+    for nome in list(DO_FICHEIRO):
+        os.environ.pop(nome, None)
+    DO_FICHEIRO.clear()
+    return carregar_env()
 
 
 def _bool(nome: str, omissao: str = "0") -> bool:

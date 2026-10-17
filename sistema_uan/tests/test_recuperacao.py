@@ -202,3 +202,29 @@ def test_linha_de_comandos_repor_senha(tmp_path):
     r = subprocess.run([sys.executable, str(RAIZ / "uan.py"), "repor-senha", "zzz", "--temporaria"],
                        capture_output=True, text=True, env=env, cwd=RAIZ, timeout=60)
     assert r.returncode != 0 and "não existe" in r.stderr
+
+
+# ------------------------------------------------------------------ uan.env
+def test_uan_env_txt_e_recarregar(tmp_path, monkeypatch):
+    from sistema import config
+    monkeypatch.delenv("UAN_SEGREDO_HASH", raising=False)
+    monkeypatch.setenv("UAN_ENV", str(tmp_path / "uan.env"))
+    (tmp_path / "uan.env.txt").write_text("UAN_SEGREDO_HASH=um\n", encoding="utf-8")  # o Bloco de Notas acrescenta .txt
+    config.DO_FICHEIRO.clear()
+    config.carregar_env()
+    assert config.Config().segredo_hash == "um"
+    (tmp_path / "uan.env.txt").write_text("UAN_SEGREDO_HASH=dois\n", encoding="utf-8")
+    config.recarregar_env()  # cada arranque do servidor volta a ler o ficheiro
+    assert config.Config().segredo_hash == "dois"
+    monkeypatch.delenv("UAN_SEGREDO_HASH", raising=False)
+    config.DO_FICHEIRO.clear()
+
+
+def test_verificar_config_nao_mostra_segredos(tmp_path):
+    (tmp_path / "uan.env").write_text("UAN_SEGREDO_HASH=segredo-muito-secreto\nUAN_YOUTUBE_CHAVE=AIzaXYZ\n", encoding="utf-8")
+    env = {"UAN_ENV": str(tmp_path / "uan.env"), "UAN_BD": str(tmp_path / "v.db"), "PATH": "/usr/bin:/bin",
+           "PYTHONIOENCODING": "utf-8"}
+    r = subprocess.run([sys.executable, str(RAIZ / "uan.py"), "verificar-config"], capture_output=True, text=True,
+                       env=env, cwd=RAIZ, timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert "UAN_SEGREDO_HASH     definido" in r.stdout and "segredo-muito-secreto" not in r.stdout and "AIzaXYZ" not in r.stdout

@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Os testes (110) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
+Os testes (112) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
 
 ## 2. Configuração: ficheiro `uan.env`
 
@@ -57,7 +57,7 @@ Copie `uan.env.exemplo` para `uan.env` e preencha. O `uan.env` não vai para o G
 | `UAN_URL_BASE` | http://127.0.0.1:8000 | Endereço do sistema, usado nas ligações dos e-mails |
 | `UAN_RECOLHA_AGENTE` | SistemaUAN-Investigacao/1.0 (…) | Identificação enviada aos sítios (User-Agent) |
 
-Uma variável definida com `set` no cmd prevalece sobre o ficheiro.
+Uma variável definida com `set` no cmd prevalece sobre o ficheiro. O ficheiro é lido em cada arranque do servidor (também ao mudar de modo); depois de o alterar, reinicie. Se o Bloco de Notas o gravar como `uan.env.txt`, também é lido. Para confirmar o que o sistema lê, sem mostrar os valores: `python uan.py verificar-config`.
 
 ## 3. Arrancar
 
