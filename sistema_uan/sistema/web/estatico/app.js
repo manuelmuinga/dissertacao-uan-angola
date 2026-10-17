@@ -91,6 +91,61 @@
   cada("[data-toast-servidor]", function (t) { setTimeout(function () { sairToast(t); }, 4500); });
 
   function csrf() { var i = document.querySelector("input[name=csrf]"); return i ? i.value : ""; }
+
+  /* ---------- fechar a janela: aviso e saída do sistema ----------
+     Ao fechar o separador ou o navegador, o navegador pergunta se quer mesmo sair (o texto da pergunta
+     é do próprio navegador). Se fechar, a sessão termina: o servidor recebe um aviso e, se nenhuma página
+     do sistema voltar a abrir em poucos segundos, fecha a sessão. Mudar de página, gravar um formulário
+     ou recarregar não terminam a sessão. Com outros separadores do sistema abertos, a sessão continua. */
+  var saindoDentro = false, temporizadorSaida = null;
+  function saidaInterna() {
+    saindoDentro = true;
+    clearTimeout(temporizadorSaida);
+    temporizadorSaida = setTimeout(function () { saindoDentro = false; }, 2500);  // ex.: transferências
+  }
+  function navegar(url) { saidaInterna(); window.location.href = url; }
+  function recarregar() { saidaInterna(); window.location.reload(); }
+  var comSessao = !!document.querySelector(".lateral") && !!csrf();
+  var idAba = Math.random().toString(36).slice(2);
+  function guardar(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* sem armazenamento */ } }
+  function outrasAbasAbertas() {
+    var agora = Date.now(), n = 0;
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf("uan_aba:") === 0 && k !== "uan_aba:" + idAba && agora - Number(localStorage.getItem(k)) < 90000) n++;
+      }
+    } catch (e) { return false; }
+    return n > 0;
+  }
+  if (comSessao) {
+    guardar("uan_aba:" + idAba, String(Date.now()));
+    setInterval(function () { guardar("uan_aba:" + idAba, String(Date.now())); }, 5000);
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (!a || e.defaultPrevented || a.target === "_blank" || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (a.origin === window.location.origin && !a.hasAttribute("download")) saidaInterna();
+    });
+    document.addEventListener("submit", function (e) { if (!e.defaultPrevented) saidaInterna(); });
+    window.addEventListener("beforeunload", function (e) {
+      if (saindoDentro) return;
+      e.preventDefault();
+      e.returnValue = "";  // o navegador mostra a sua própria pergunta («Sair do site?»)
+      return "";
+    });
+    window.addEventListener("pagehide", function (e) {
+      guardar("uan_aba:" + idAba, null);
+      if (saindoDentro || e.persisted || outrasAbasAbertas() || !navigator.sendBeacon) return;
+      var dados = new FormData(); dados.append("csrf", csrf());
+      navigator.sendBeacon("/sessao/fecho", dados);
+    });
+    // Se o aviso de fecho chegou mas a página voltou a abrir (recarregar), a sessão continua.
+    setTimeout(function () {
+      if (window.fetch) fetch("/sessao/viva", { method: "POST", credentials: "same-origin",
+        headers: { "X-Pedido": "fetch", "Content-Type": "application/x-www-form-urlencoded" },
+        body: "csrf=" + encodeURIComponent(csrf()) }).catch(function () {});
+    }, 3000);
+  }
   function enviar(url, dados) {
     var corpo = new URLSearchParams();
     Object.keys(dados).forEach(function (k) { corpo.append(k, dados[k]); });
@@ -257,7 +312,7 @@
     if (alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.tagName === "SELECT" || alvo.isContentEditable)) return;
     var k = e.key.toLowerCase();
     if (e.key === "?") { e.preventDefault(); mostrarAjuda(ajuda && ajuda.hidden); return; }
-    if (esperaG && Date.now() - esperaG < 1200 && DESTINOS[k]) { e.preventDefault(); esperaG = 0; window.location.href = DESTINOS[k]; return; }
+    if (esperaG && Date.now() - esperaG < 1200 && DESTINOS[k]) { e.preventDefault(); esperaG = 0; navegar(DESTINOS[k]); return; }
     esperaG = (k === "g") ? Date.now() : 0;
     if (k === "u" && ultimaDecisao) { e.preventDefault(); desfazer(); }
   });
@@ -310,7 +365,7 @@
   function recarregarSuave() {
     document.body.style.transition = "opacity .2s ease";
     document.body.style.opacity = ".6";
-    setTimeout(function () { window.location.reload(); }, reduzirMovimento ? 0 : 200);
+    setTimeout(function () { recarregar(); }, reduzirMovimento ? 0 : 200);
   }
 
   var caixa = document.getElementById("estado-classificacao");
@@ -640,7 +695,7 @@
             var link = document.querySelector('.menu a[href="/alertas"]');
             if (link) { link.classList.remove("pulsar"); void link.offsetWidth; link.classList.add("pulsar"); }
             toast("Novo alerta: " + d.ultimo_alerta.titulo, { tipo: "info", ms: 8000,
-              accao: { rotulo: "Ver", fn: function () { window.location.href = d.ultimo_alerta.ligacao; } } });
+              accao: { rotulo: "Ver", fn: function () { navegar(d.ultimo_alerta.ligacao); } } });
           }
           if (novo) ultimoVisto = novo;
           primeira = false;
@@ -652,7 +707,7 @@
           // Sem resposta: o servidor pode estar a reiniciar (por exemplo, troca de modo noutro separador).
           // Se responde noutro modo (a sessão deixou de valer), recarrega: a página abre a entrada.
           pedirJSON("/sistema/estado", 3000)
-            .then(function (d) { if (d && d.modo !== document.body.getAttribute("data-modo")) { aEsperar = true; window.location.reload(); } })
+            .then(function (d) { if (d && d.modo !== document.body.getAttribute("data-modo")) { aEsperar = true; recarregar(); } })
             .catch(function () { esperarTroca(null); });
         })
         .then(function () { if (!aEsperar) setTimeout(vigiar, 20000); });
@@ -685,7 +740,7 @@
     [["Tema escuro", function () { aplicarTema("escuro"); gravarAspecto({ tema: "escuro" }); }, "lua"],
      ["Tema claro", function () { aplicarTema("claro"); gravarAspecto({ tema: "claro" }); }, "sol"],
      ["Tema automático (segue o sistema)", function () { aplicarTema(""); gravarAspecto({ tema: "auto" }); }, "auto"],
-     ["Aspecto: cor, menu, letra, densidade, mapa e animações", function () { window.location.href = "/definicoes#aspecto"; }, "definicoes"],
+     ["Aspecto: cor, menu, letra, densidade, mapa e animações", function () { navegar("/definicoes#aspecto"); }, "definicoes"],
      ["Visita guiada", function () { iniciarVisita(); }, "visita"],
      ["Atalhos de teclado", function () { mostrarAjuda(true); }, "definicoes"],
      ["Imprimir esta página", function () { window.print(); }, "relatorio"]
@@ -737,7 +792,7 @@
     var c = paletaItens[i];
     if (!c) return;
     fecharPaleta();
-    if (c.fn) c.fn(); else window.location.href = c.url;
+    if (c.fn) c.fn(); else navegar(c.url);
   }
   if (paleta) {
     cada("[data-paleta-abrir]", function (b) { b.addEventListener("click", abrirPaleta); });
@@ -942,8 +997,8 @@
     var pronto = function () {
       clearInterval(relogio);
       tempo.textContent = "Pronto. A abrir…";
-      if (modo) window.location.href = "/entrar";
-      else window.location.reload();
+      if (modo) navegar("/entrar");
+      else recarregar();
     };
     var tentar = function () {
       pedirJSON("/sistema/estado", 3000)

@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Os testes (118) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
+Os testes (121) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
 
 ## 2. Configuração: ficheiro `uan.env`
 
@@ -84,6 +84,8 @@ Cria, na primeira vez, a base `dados\demonstracao.db` com cerca de 1 350 publica
 3. **Linha de comandos** (por exemplo, para o único supervisor), no computador do servidor: `python uan.py repor-senha supervisor`, que pede a nova palavra-passe, ou `python uan.py repor-senha supervisor --temporaria`, que mostra uma temporária. Os dois comandos desbloqueiam e reactivam a conta. Na base de demonstração, acrescente `--demonstracao`.
 
 Todos os passos ficam na *Auditoria*.
+
+**Fechar a janela termina a sessão.** Ao fechar o separador ou o navegador com o sistema aberto, o navegador pergunta se quer sair (a pergunta e o texto são do próprio navegador; aparece depois de ter usado a página, e também ao recarregar com F5). Se confirmar, o navegador avisa o servidor e, se nenhuma página do sistema voltar a abrir em 20 segundos, a sessão termina e fica na auditoria como `saida` com o motivo `janela_fechada`. Mudar de página e gravar formulários não perguntam nada. Com outro separador do sistema aberto, a sessão continua. O cookie da sessão também deixou de ter validade própria, por isso o navegador apaga-o ao fechar.
 
 Por omissão o servidor só aceita ligações do próprio computador. Para outros computadores da rede local usarem o sistema: `python uan.py servir --anfitriao 0.0.0.0` (abra a porta 8000 na firewall do Windows só para a rede interna; para uso fora de um teste, coloque o serviço atrás de HTTPS e defina `UAN_COOKIE_SEGURO=1`).
 

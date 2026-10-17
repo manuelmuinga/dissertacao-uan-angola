@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS sessoes (
     utilizador  TEXT NOT NULL REFERENCES utilizadores(utilizador) ON DELETE CASCADE,
     csrf        TEXT NOT NULL,
     criada_em   TEXT NOT NULL,
-    expira_em   TEXT NOT NULL
+    expira_em   TEXT NOT NULL,
+    fecho_em    TEXT          -- a janela foi fechada a esta hora; a sessão termina se nada voltar a abrir
 );
 CREATE TABLE IF NOT EXISTS fontes (
     id_fonte       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,6 +195,9 @@ def _migrar(c: sqlite3.Connection) -> None:
             DROP TABLE revisoes_v01;
             CREATE INDEX IF NOT EXISTS ix_rev_analista ON revisoes(analista);
         """)
+    cols_s = _colunas(c, "sessoes")
+    if cols_s and "fecho_em" not in cols_s:
+        c.execute("ALTER TABLE sessoes ADD COLUMN fecho_em TEXT")
     cols_u = _colunas(c, "utilizadores")
     if cols_u and "senha_temporaria" not in cols_u:
         c.execute("ALTER TABLE utilizadores ADD COLUMN senha_temporaria INTEGER NOT NULL DEFAULT 0")

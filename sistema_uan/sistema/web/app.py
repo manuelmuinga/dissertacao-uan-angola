@@ -42,7 +42,7 @@ from ..servico import (VIAS, classificacao_em_curso, classificar_pendentes, expo
 from ..utilizadores import (ErroAutenticacao, autenticar, criar_sessao, criar_utilizador, definir_activo,
                             mudar_senha, obter_sessao, terminar_sessao,
                             gerar_codigo_recuperacao, pedidos_pendentes, pedir_recuperacao, recuperar_com_codigo,
-                            recusar_pedido, repor_temporaria)
+                            recusar_pedido, repor_temporaria, marcar_fecho, limpar_sessoes_fechadas)
 
 log = logging.getLogger(__name__)
 PASTA = Path(__file__).resolve().parent
@@ -123,7 +123,7 @@ class PrecisaMudarSenha(Exception):
 
 
 # caminhos permitidos a quem entrou com palavra-passe temporária
-LIVRES_SENHA_TEMPORARIA = {"/conta", "/conta/senha", "/conta/codigo", "/sair", "/estado", "/sistema/estado",
+LIVRES_SENHA_TEMPORARIA = {"/conta", "/conta/senha", "/conta/codigo", "/sair", "/sessao/fecho", "/sessao/viva", "/estado", "/sistema/estado",
                            "/alertas/recentes", "/aspecto"}
 
 
@@ -449,8 +449,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         temporaria = bd.consultar("SELECT senha_temporaria FROM utilizadores WHERE utilizador = ?",
                                   (u["utilizador"],))[0]["senha_temporaria"]
         resp = ir("/conta", "temporaria") if temporaria else ir(destino_seguro(seguinte))
-        resp.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=cfg.cookie_seguro,
-                        max_age=cfg.horas_sessao * 3600, path="/")
+        # cookie de sessão (sem max_age): o navegador apaga-o ao fechar; o prazo é controlado no servidor
+        resp.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=cfg.cookie_seguro, path="/")
         return resp
 
     @app.post("/sair")
@@ -483,6 +483,22 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     def recuperar_pedido(request: Request, utilizador: str = Form("")):
         pedir_recuperacao(bd, utilizador)
         return pagina(request, "recuperar.html", {"pedido_feito": True, "utilizador": utilizador[:40]})
+
+    # ------------------------------------------------------------------ fecho da janela do navegador
+    @app.post("/sessao/fecho")
+    def sessao_fecho(request: Request, csrf: str = Form("")):
+        """Enviado pelo navegador ao fechar o separador. A sessão termina se nada voltar a abrir em 20 s."""
+        s = obter_sessao(bd, request.cookies.get(COOKIE))
+        if s and csrf and hmac.compare_digest(csrf, s["csrf"]):
+            marcar_fecho(bd, request.cookies.get(COOKIE))
+        return Response(status_code=204)
+
+    @app.post("/sessao/viva")
+    def sessao_viva(request: Request, csrf: str = Form("")):
+        s = sessao(request)
+        verificar_csrf(s, csrf)
+        marcar_fecho(bd, request.cookies.get(COOKIE), False)
+        return Response(status_code=204)
 
     @app.get("/configurar", response_class=HTMLResponse)
     def configurar_form(request: Request):
@@ -842,12 +858,13 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     def _ciclo_agendador():
         while not parar_agendador.wait(30):
             try:
+                limpar_sessoes_fechadas(bd)
                 _agendador_tick()
             except Exception:  # um erro numa volta não pára as seguintes
                 log.exception("Falha no agendador da recolha automática")
 
     def _iniciar_agendador():
-        if not sincrono and not cfg.demonstracao:
+        if not sincrono:  # na demonstração só limpa as sessões fechadas (a recolha não corre)
             parar_agendador.clear()
             threading.Thread(target=_ciclo_agendador, name="agendador-recolha", daemon=True).start()
 

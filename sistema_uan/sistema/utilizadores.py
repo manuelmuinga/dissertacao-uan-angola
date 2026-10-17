@@ -26,6 +26,7 @@ from .config import PAPEIS
 ITERACOES = 240_000
 MAX_FALHAS = 5
 MINUTOS_BLOQUEIO = 5
+SEGUNDOS_FECHO = 20  # depois de a janela fechar, a sessão termina se nenhuma página do sistema abrir neste prazo
 _NOME_VALIDO = re.compile(r"^[a-z0-9._-]{3,32}$")
 
 
@@ -248,17 +249,45 @@ def obter_sessao(bd: BaseDados, token: str | None) -> dict | None:
     if not token:
         return None
     r = bd.consultar(
-        """SELECT s.csrf, s.expira_em, u.utilizador, u.nome, u.papel, u.activo, u.senha_temporaria,
+        """SELECT s.csrf, s.expira_em, s.fecho_em, u.utilizador, u.nome, u.papel, u.activo, u.senha_temporaria,
                   u.codigo_criado_em
            FROM sessoes s JOIN utilizadores u ON u.utilizador = s.utilizador WHERE s.token_hash = ?""",
         (_h(token),))
     if not r:
         return None
     s = dict(r[0])
-    if not s["activo"] or datetime.fromisoformat(s["expira_em"]) < datetime.now(timezone.utc):
+    agora_dt = datetime.now(timezone.utc)
+    if not s["activo"] or datetime.fromisoformat(s["expira_em"]) < agora_dt:
         terminar_sessao(bd, token)
         return None
+    if s["fecho_em"]:
+        if (agora_dt - datetime.fromisoformat(s["fecho_em"])).total_seconds() > SEGUNDOS_FECHO:
+            terminar_sessao(bd, token)
+            bd.auditar(s["utilizador"], "saida", {"motivo": "janela_fechada"})
+            return None
+        marcar_fecho(bd, token, False)  # voltou a abrir (recarregou ou mudou de página): continua
+        s["fecho_em"] = None
     return s
+
+
+def marcar_fecho(bd: BaseDados, token: str | None, fechou: bool = True) -> None:
+    """A janela do navegador foi fechada (fechou=True) ou voltou a abrir (False)."""
+    if token:
+        with bd.ligacao() as c:
+            c.execute("UPDATE sessoes SET fecho_em = ? WHERE token_hash = ?", (agora() if fechou else None, _h(token)))
+
+
+def limpar_sessoes_fechadas(bd: BaseDados) -> int:
+    """Termina as sessões cuja janela fechou há mais de SEGUNDOS_FECHO segundos."""
+    limite = (datetime.now(timezone.utc) - timedelta(seconds=SEGUNDOS_FECHO)).isoformat()
+    linhas = bd.consultar("SELECT token_hash, utilizador FROM sessoes WHERE fecho_em IS NOT NULL AND fecho_em < ?",
+                          (limite,))
+    with bd.ligacao() as c:
+        for l in linhas:
+            c.execute("DELETE FROM sessoes WHERE token_hash = ?", (l["token_hash"],))
+    for l in linhas:
+        bd.auditar(l["utilizador"], "saida", {"motivo": "janela_fechada"})
+    return len(linhas)
 
 
 def terminar_sessao(bd: BaseDados, token: str | None) -> None:

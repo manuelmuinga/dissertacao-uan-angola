@@ -228,3 +228,33 @@ def test_verificar_config_nao_mostra_segredos(tmp_path):
                        env=env, cwd=RAIZ, timeout=60)
     assert r.returncode == 0, r.stderr
     assert "UAN_SEGREDO_HASH     definido" in r.stdout and "segredo-muito-secreto" not in r.stdout and "AIzaXYZ" not in r.stdout
+
+
+# ------------------------------------------------------------------ fechar a janela termina a sessão
+def test_fechar_janela_termina_sessao(app, monkeypatch):
+    from sistema import utilizadores as ut
+    c = entrar(app, "ana")
+    h = c.get("/conta").text
+    assert c.post("/sessao/fecho", data={"csrf": csrf(h)}).status_code == 204
+    # recarregar logo a seguir: a sessão continua
+    assert c.get("/fila", follow_redirects=False).status_code == 200
+    c.post("/sessao/fecho", data={"csrf": csrf(h)})
+    monkeypatch.setattr(ut, "SEGUNDOS_FECHO", -1)  # o prazo já passou
+    assert ut.limpar_sessoes_fechadas(app.state.bd) == 1
+    r = c.get("/fila", follow_redirects=False)
+    assert r.status_code == 303 and "/entrar" in r.headers["location"]
+    assert app.state.bd.consultar("SELECT COUNT(*) FROM auditoria WHERE accao='saida' AND detalhe LIKE '%janela_fechada%'")[0][0] == 1
+
+
+def test_fecho_sem_csrf_e_ignorado_e_cookie_de_sessao(app):
+    c = TestClient(app)
+    r = c.post("/entrar", data={"utilizador": "ana", "senha": SENHA, "seguinte": "/"}, follow_redirects=False)
+    assert "max-age" not in r.headers["set-cookie"].lower() and "expires" not in r.headers["set-cookie"].lower()
+    c.post("/sessao/fecho", data={"csrf": "errado"})
+    assert app.state.bd.consultar("SELECT COUNT(*) FROM sessoes WHERE fecho_em IS NOT NULL")[0][0] == 0
+
+
+def test_js_avisa_ao_fechar():
+    js = (RAIZ / "sistema" / "web" / "estatico" / "app.js").read_text(encoding="utf-8")
+    assert "beforeunload" in js and 'sendBeacon("/sessao/fecho"' in js and "window.location.href =" in js
+    assert js.count("window.location.href =") == 1  # só dentro de navegar(): a navegação interna não pergunta
