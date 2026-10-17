@@ -277,6 +277,9 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     tpl.env.filters["json"] = lambda x: json.loads(x or "{}")
     tpl.env.filters["realcar"] = realcar
     tpl.env.globals["linha_tendencia"] = linha_tendencia
+    import hashlib
+    tpl.env.globals["v_estatico"] = hashlib.sha1(b"".join(
+        (PASTA / "estatico" / f).read_bytes() for f in ("app.js", "estilo.css"))).hexdigest()[:10]
 
     @app.middleware("http")
     async def cabecalhos(request: Request, call_next):
@@ -290,6 +293,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
                 "form-action 'self'; frame-ancestors 'none'")
         if request.url.path not in ("/estatico",) and not request.url.path.startswith("/estatico/"):
             resp.headers["Cache-Control"] = "no-store"
+        else:  # o navegador confirma sempre se o ficheiro mudou (evita JavaScript antigo depois de actualizar)
+            resp.headers["Cache-Control"] = "no-cache"
         return resp
 
     @app.exception_handler(PrecisaEntrar)
@@ -630,6 +635,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         return {"modelo": estado["modelo"], "pendentes": bd.n_pendentes(),
                 "classificacao": None if not p else {"feitos": p["feitos"], "total": p["total"]},
                 "recolha": estado["recolha"], "alertas_por_ver": n_alertas,
+                "modo": "demonstracao" if cfg.demonstracao else "real",
                 "ultimo_alerta": recentes[0] if recentes else None, "fila": bd.n_fila(s["utilizador"])}
 
     @app.get("/alertas/recentes")

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Triagem{% endblock %} · Sistema UAN</title>
-<link rel="stylesheet" href="/estatico/estilo.css">
+<link rel="stylesheet" href="/estatico/estilo.css?v={{ v_estatico }}">
 <link rel="icon" href="/estatico/icone.svg" type="image/svg+xml">
 </head>
 <body data-modo="{{ 'demonstracao' if demonstracao else 'real' }}" data-papel="{{ sessao.papel if sessao else '' }}" data-troca="{{ '1' if troca_disponivel else '' }}"{% if sessao and visita_pendente and not request.query_params.get('parcial') %} data-visita-auto{% endif %}{% if demonstracao %} class="modo-demo"{% endif %}>
@@ -159,6 +159,6 @@
     <span><button class="botao secundario pequeno" type="button" data-visita-anterior>Anterior</button>
     <button class="botao pequeno" type="button" data-visita-seguinte>Seguinte</button></span></div>
 </div>
-<script src="/estatico/app.js"></script>
+<script src="/estatico/app.js?v={{ v_estatico }}"></script>
 </body>
 </html>

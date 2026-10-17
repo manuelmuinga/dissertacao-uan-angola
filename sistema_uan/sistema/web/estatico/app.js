@@ -630,10 +630,10 @@
     var ultimoVisto = null, primeira = true;
     var vigiar = function () {
       if (document.hidden) { setTimeout(vigiar, 15000); return; }
-      fetch("/estado", { credentials: "same-origin", headers: { "Accept": "application/json" } })
-        .then(function (r) { return r.ok ? r.json() : null; })
+      pedirJSON("/estado", 8000)
         .then(function (d) {
           if (!d) return;
+          if (d.modo && d.modo !== document.body.getAttribute("data-modo")) { esperarTroca(null); return; }
           var novo = d.ultimo_alerta && d.ultimo_alerta.id;
           if (!primeira && novo && novo !== ultimoVisto && d.alertas_por_ver > porVer) {
             sino.classList.remove("pulsar"); void sino.offsetWidth; sino.classList.add("pulsar");
@@ -648,8 +648,14 @@
           mostrarPorVer(porVer);
           if (typeof d.fila === "number" && !itens.length) actualizarContador("/fila", d.fila);
         })
-        .catch(function () {})
-        .then(function () { setTimeout(vigiar, 20000); });
+        .catch(function () {
+          // Sem resposta: o servidor pode estar a reiniciar (por exemplo, troca de modo noutro separador).
+          // Se responde noutro modo (a sessão deixou de valer), recarrega: a página abre a entrada.
+          pedirJSON("/sistema/estado", 3000)
+            .then(function (d) { if (d && d.modo !== document.body.getAttribute("data-modo")) { aEsperar = true; window.location.reload(); } })
+            .catch(function () { esperarTroca(null); });
+        })
+        .then(function () { if (!aEsperar) setTimeout(vigiar, 20000); });
     };
     setTimeout(vigiar, 1500);
   }
@@ -904,27 +910,51 @@
   });
 
   // ---------- troca entre o modo real e a demonstração ----------
+  // Pedido JSON com prazo: durante o reinício, um pedido pode ficar pendurado em vez de falhar.
+  function pedirJSON(url, ms) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var prazo = ctl ? setTimeout(function () { ctl.abort(); }, ms || 4000) : null;
+    return fetch(url, { cache: "no-store", credentials: "same-origin", redirect: "manual",
+                        headers: { "Accept": "application/json" }, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        clearTimeout(prazo);
+        if (!r.ok) throw new Error("estado " + r.status);
+        return r.json();
+      }, function (e) { clearTimeout(prazo); throw e; });
+  }
+  var aEsperar = false;
+  // modo: o modo pedido (troca) ou null (o servidor reiniciou por outro motivo: recarregar a página).
   function esperarTroca(modo) {
+    if (aEsperar) return;
+    aEsperar = true;
     var nome = modo === "demonstracao" ? "de demonstração" : "real";
     var ecra = document.createElement("div");
     ecra.className = "troca-ecra"; ecra.setAttribute("role", "alertdialog"); ecra.setAttribute("aria-live", "assertive");
-    ecra.innerHTML = '<div class="cartao"><div class="rodar" aria-hidden="true"></div><h2>A mudar para o modo ' + nome + '</h2>' +
-      '<p class="suave">O servidor está a reiniciar com a outra base de dados. A página de entrada abre sozinha quando estiver pronto' +
-      (modo === "demonstracao" ? ' (na primeira vez, o tempo de criar os dados fictícios).' : ' (o modelo demora alguns segundos a carregar).') +
+    ecra.innerHTML = '<div class="cartao"><div class="rodar" aria-hidden="true"></div><h2>' +
+      (modo ? "A mudar para o modo " + nome : "O servidor está a reiniciar") + '</h2>' +
+      '<p class="suave">' + (modo ? "O servidor está a reiniciar com a outra base de dados. " : "") +
+      "Esta página carrega sozinha quando o servidor estiver pronto" +
+      (modo === "demonstracao" ? " (na primeira vez, o tempo de criar os dados fictícios)." : modo ? " (o modelo demora alguns segundos a carregar)." : ".") +
       '</p><p class="ajuda" data-troca-tempo>0 s</p></div>';
     document.body.appendChild(ecra);
-    var inicio = Date.now(), tempo = ecra.querySelector("[data-troca-tempo]");
-    var tentar = function () {
-      tempo.textContent = Math.round((Date.now() - inicio) / 1000) + " s";
-      fetch("/sistema/estado", { cache: "no-store", headers: { "Accept": "application/json" } })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
-          if (d && d.modo === modo) { window.location.href = "/entrar"; return; }
-          setTimeout(tentar, 1500);
-        })
-        .catch(function () { setTimeout(tentar, 1500); });
+    var inicio = Date.now(), tempo = ecra.querySelector("[data-troca-tempo]"), viuParagem = !modo;
+    var relogio = setInterval(function () { tempo.textContent = Math.round((Date.now() - inicio) / 1000) + " s"; }, 1000);
+    var pronto = function () {
+      clearInterval(relogio);
+      tempo.textContent = "Pronto. A abrir…";
+      if (modo) window.location.href = "/entrar";
+      else window.location.reload();
     };
-    setTimeout(tentar, 1500);
+    var tentar = function () {
+      pedirJSON("/sistema/estado", 3000)
+        .then(function (d) {
+          // Na troca, o servidor antigo ainda responde por instantes: só serve o modo novo.
+          if (d && (modo ? d.modo === modo : viuParagem)) { pronto(); return; }
+          setTimeout(tentar, 1200);
+        })
+        .catch(function () { viuParagem = true; setTimeout(tentar, 1200); });
+    };
+    setTimeout(tentar, 1000);
   }
   cada("form[data-trocar-modo]", function (f) {
     f.addEventListener("submit", function (e) {
