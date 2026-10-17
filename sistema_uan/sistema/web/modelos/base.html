@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt"{% if tema %} data-tema="{{ tema }}"{% endif %}{% for k in ('cor', 'menu', 'cantos', 'movimento') %}{% if aspecto[k] != ASPECTO[k][0] %} data-{{ k }}="{{ aspecto[k] }}"{% endif %}{% endfor %}>
+<html lang="pt"{% if tema %} data-tema="{{ tema }}"{% endif %}{% for k in ('cor', 'menu', 'cantos', 'movimento', 'letra', 'densidade') %}{% if aspecto[k] != ASPECTO[k][0] %} data-{{ k }}="{{ aspecto[k] }}"{% endif %}{% endfor %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -20,6 +20,14 @@
         {% for v, n in ASPECTO.menu[1].items() %}<label class="opcao"><input type="radio" name="menu" value="{{ v }}" {{ 'checked' if aspecto.menu == v }}>
           <span class="amostra-menu menu-{{ v }}" aria-hidden="true"><i></i></span>{{ n }}</label>{% endfor %}
       </fieldset>
+      <fieldset class="opcoes"><legend>Tamanho da letra</legend>
+        {% for v, n in ASPECTO.letra[1].items() %}<label class="opcao"><input type="radio" name="letra" value="{{ v }}" {{ 'checked' if aspecto.letra == v }}>
+          <span class="amostra-letra letra-{{ v }}" aria-hidden="true">Aa</span>{{ n }}</label>{% endfor %}
+      </fieldset>
+      <fieldset class="opcoes"><legend>Densidade</legend>
+        {% for v, n in ASPECTO.densidade[1].items() %}<label class="opcao"><input type="radio" name="densidade" value="{{ v }}" {{ 'checked' if aspecto.densidade == v }}>
+          <span class="amostra-densidade densidade-{{ v }}" aria-hidden="true"><i></i><i></i><i></i></span>{{ n }}</label>{% endfor %}
+      </fieldset>
       <fieldset class="opcoes"><legend>Cores do mapa</legend>
         {% for v, n in ASPECTO.mapa[1].items() %}<label class="opcao"><input type="radio" name="mapa" value="{{ v }}" {{ 'checked' if aspecto.mapa == v }}>
           <span class="amostra-escala" style="background: linear-gradient(90deg, {{ PALETAS_MAPA[v][0] }}, {{ PALETAS_MAPA[v][1] }})" aria-hidden="true"></span>{{ n }}</label>{% endfor %}

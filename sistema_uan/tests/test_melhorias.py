@@ -207,13 +207,15 @@ def test_troca_de_modo(app, monkeypatch):
 def test_aspecto(app):
     c = entrar(app, "ana")
     h = c.get("/definicoes").text
-    for nome in ("tema", "cor", "menu", "mapa", "cantos", "movimento"):
+    for nome in ("tema", "cor", "menu", "mapa", "cantos", "movimento", "letra", "densidade"):
         assert f'name="{nome}"' in h
     r = c.post("/aspecto", data={"csrf": csrf(h), "cor": "verde", "menu": "claro", "cantos": "rectos",
-                                 "movimento": "reduzido", "mapa": "azul"}, headers={"X-Pedido": "fetch"})
+                                 "movimento": "reduzido", "mapa": "azul", "letra": "grande", "densidade": "compacta"},
+               headers={"X-Pedido": "fetch"})
     assert r.json()["aspecto"]["cor"] == "verde"
     p = c.get("/").text.split("<head>")[0]
     assert 'data-cor="verde"' in p and 'data-menu="claro"' in p and 'data-cantos="rectos"' in p and 'data-movimento="reduzido"' in p
+    assert 'data-letra="grande"' in p and 'data-densidade="compacta"' in p
     m = c.get("/mapa?dias=7").text
     assert 'data-escala-b="#143a5e"' in m          # a paleta azul chega ao mapa e à legenda
     # outra conta mantém o aspecto por omissão

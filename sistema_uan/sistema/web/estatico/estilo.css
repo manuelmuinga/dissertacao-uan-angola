@@ -145,6 +145,43 @@
 @media screen { :root[data-tema="escuro"][data-cor="grafite"] { --marca: #a9b6c3; --marca-escura: #c4cfda; --marca-clara: #262f38; --info: #c4cfda; } }
 @media screen { :root[data-menu="cor"] { --lateral: var(--lateral-cor); } }
 :root[data-cantos="rectos"] { --raio: 3px; --raio-controlo: 3px; }
+/* tamanho da letra: amplia toda a interface (texto, controlos e espaços) na mesma proporção */
+:root[data-letra="pequena"] { --zoom: .92; }
+:root[data-letra="grande"] { --zoom: 1.12; }
+:root[data-letra="muito-grande"] { --zoom: 1.25; }
+@media screen {
+  :root[data-letra] body { zoom: var(--zoom, 1); }
+  :root[data-letra] .estrutura { min-height: calc(100vh / var(--zoom, 1)); }
+  :root[data-letra] .lateral { height: calc(100vh / var(--zoom, 1)); }
+}
+/* densidade: menos ou mais espaço em cartões, tabelas, fila e menu */
+:root[data-densidade="compacta"] .principal { padding: 18px 24px 40px; }
+:root[data-densidade="compacta"] .cabecalho { margin-bottom: 12px; }
+:root[data-densidade="compacta"] .cartao { padding: 13px 16px; }
+:root[data-densidade="compacta"] .grelha { gap: 10px; }
+:root[data-densidade="compacta"] .seccao { margin-top: 14px; }
+:root[data-densidade="compacta"] .kpi { padding: 10px 14px; }
+:root[data-densidade="compacta"] .tabela td, :root[data-densidade="compacta"] .tabela th { padding: 5px 8px; }
+:root[data-densidade="compacta"] .item { margin-bottom: 7px; }
+:root[data-densidade="compacta"] .item-corpo { padding: 10px 14px; }
+:root[data-densidade="compacta"] .item-lado { padding: 10px 12px; }
+:root[data-densidade="compacta"] .item-pos { padding-top: 10px; padding-bottom: 10px; }
+:root[data-densidade="compacta"] .menu a { padding: 5px 10px; }
+:root[data-densidade="compacta"] .campo { margin-bottom: 9px; }
+:root[data-densidade="compacta"] .faixa, :root[data-densidade="compacta"] .faixa-demo { padding-top: 6px; padding-bottom: 6px; margin-bottom: 10px; }
+:root[data-densidade="confortavel"] .principal { padding: 36px 48px 72px; }
+:root[data-densidade="confortavel"] .cabecalho { margin-bottom: 28px; }
+:root[data-densidade="confortavel"] .cartao { padding: 26px 28px; }
+:root[data-densidade="confortavel"] .grelha { gap: 22px; }
+:root[data-densidade="confortavel"] .seccao { margin-top: 32px; }
+:root[data-densidade="confortavel"] .kpi { padding: 20px 22px; }
+:root[data-densidade="confortavel"] .tabela td { padding: 14px 12px; }
+:root[data-densidade="confortavel"] .tabela th { padding: 12px; }
+:root[data-densidade="confortavel"] .item { margin-bottom: 18px; }
+:root[data-densidade="confortavel"] .item-corpo { padding: 22px 26px; }
+:root[data-densidade="confortavel"] .item-lado { padding: 20px; }
+:root[data-densidade="confortavel"] .menu a { padding: 10px 12px; }
+:root[data-densidade="confortavel"] .campo { margin-bottom: 18px; }
 :root[data-movimento="reduzido"] *, :root[data-movimento="reduzido"] *::before, :root[data-movimento="reduzido"] *::after {
   animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important;
 }
@@ -804,6 +841,11 @@ mark.mascara {
 .amostra-menu i { width: 9px; }
 .menu-escuro i { background: #0f2236; } .menu-claro i { background: #fff; box-shadow: 1px 0 0 #c6ccc3; } .menu-cor i { background: var(--lateral-cor); }
 .amostra-escala { width: 40px; height: 12px; border-radius: 3px; flex: none; border: 1px solid var(--linha); }
+.amostra-letra { font-weight: 700; line-height: 1; width: 22px; text-align: center; color: var(--suave); }
+.letra-pequena { font-size: 11px; } .letra-normal { font-size: 13px; } .letra-grande { font-size: 15px; } .letra-muito-grande { font-size: 17px; }
+.amostra-densidade { display: inline-grid; width: 18px; align-content: center; }
+.amostra-densidade i { display: block; height: 2px; background: currentColor; opacity: .6; border-radius: 1px; }
+.densidade-compacta { gap: 1px; } .densidade-normal { gap: 3px; } .densidade-confortavel { gap: 5px; }
 .amostra-cantos { width: 18px; height: 14px; border: 2px solid currentColor; flex: none; }
 .cantos-arredondados { border-radius: 6px; } .cantos-rectos { border-radius: 0; }
 .modo-sistema { font-size: 12px; }

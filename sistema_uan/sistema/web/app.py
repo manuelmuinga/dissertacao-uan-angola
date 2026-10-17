@@ -155,6 +155,8 @@ ASPECTO: dict[str, tuple[str, dict[str, str]]] = {
                      "grafite": "Grafite"}),
     "menu": ("escuro", {"escuro": "Escuro", "cor": "Da cor principal", "claro": "Claro"}),
     "cantos": ("arredondados", {"arredondados": "Arredondados", "rectos": "Rectos"}),
+    "letra": ("normal", {"pequena": "Pequena", "normal": "Normal", "grande": "Grande", "muito-grande": "Muito grande"}),
+    "densidade": ("normal", {"compacta": "Compacta", "normal": "Normal", "confortavel": "Confortável"}),
     "movimento": ("normal", {"normal": "Normais", "reduzido": "Reduzidas (sem animações)"}),
     "mapa": ("vermelho", {"vermelho": "Vermelho", "laranja": "Laranja", "roxo": "Roxo", "azul": "Azul", "verde": "Verde"}),
 }

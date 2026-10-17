@@ -5,6 +5,12 @@
 
   var reduzirMovimento = (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) ||
     document.documentElement.getAttribute("data-movimento") === "reduzido";
+  // Com o tamanho de letra ampliado (zoom no body), as medidas do ecrã têm de ser convertidas
+  // para as coordenadas do body antes de posicionar cartões e realces.
+  function escalaZoom() {
+    var z = parseFloat(window.getComputedStyle(document.body).zoom);
+    return z > 0 ? z : 1;
+  }
   function cada(seletor, fn, raiz) {
     Array.prototype.forEach.call((raiz || document).querySelectorAll(seletor), fn);
   }
@@ -365,7 +371,9 @@
       }
       cartao.innerHTML = html;
       cartao.hidden = false;
-      var r = a.getBoundingClientRect(), c = caixaMapa.getBoundingClientRect();
+      var z = escalaZoom(), r0 = a.getBoundingClientRect(), c0 = caixaMapa.getBoundingClientRect();
+      var r = { left: r0.left / z, top: r0.top / z, width: r0.width / z, height: r0.height / z };
+      var c = { left: c0.left / z, top: c0.top / z, width: c0.width / z, height: c0.height / z };
       var x = r.left - c.left + r.width / 2 + 14, y = r.top - c.top + r.height / 2 - 20;
       var w = cartao.offsetWidth, h = cartao.offsetHeight;
       if (x + w > c.width) x = Math.max(0, r.left - c.left + r.width / 2 - w - 14);
@@ -671,7 +679,7 @@
     [["Tema escuro", function () { aplicarTema("escuro"); gravarAspecto({ tema: "escuro" }); }, "lua"],
      ["Tema claro", function () { aplicarTema("claro"); gravarAspecto({ tema: "claro" }); }, "sol"],
      ["Tema automático (segue o sistema)", function () { aplicarTema(""); gravarAspecto({ tema: "auto" }); }, "auto"],
-     ["Aspecto: cor, menu, mapa e animações", function () { window.location.href = "/definicoes#aspecto"; }, "definicoes"],
+     ["Aspecto: cor, menu, letra, densidade, mapa e animações", function () { window.location.href = "/definicoes#aspecto"; }, "definicoes"],
      ["Visita guiada", function () { iniciarVisita(); }, "visita"],
      ["Atalhos de teclado", function () { mostrarAjuda(true); }, "definicoes"],
      ["Imprimir esta página", function () { window.print(); }, "relatorio"]
@@ -766,7 +774,7 @@
     { alvo: '.menu a[href="/metricas"]', titulo: "Métricas", texto: "Precisão nos primeiros itens da fila, acordo entre analistas e modelo e entre analistas, sensibilidade estimada pela amostra de controlo e tempos de processamento. Exporta as revisões para novo treino." },
     { alvo: '.menu a[href="/utilizadores"]', titulo: "Utilizadores", texto: "Criar contas de analistas e supervisores, desactivá-las e redefinir palavras-passe. Cada pessoa entra com a sua própria conta." },
     { alvo: '.menu a[href="/auditoria"]', titulo: "Auditoria", texto: "O registo de tudo o que acontece: entradas, importações, recolhas, decisões, exportações, alertas e alterações de definições." },
-    { alvo: '.menu a[href="/definicoes"]', titulo: "Definições e aspecto", texto: "Escolha o tema, a cor principal, o menu, as cores do mapa, os cantos e as animações, só para a sua conta." +
+    { alvo: '.menu a[href="/definicoes"]', titulo: "Definições e aspecto", texto: "Escolha o tema, a cor principal, o menu, o tamanho da letra, a densidade, as cores do mapa, os cantos e as animações, só para a sua conta." +
       (ehSupervisor ? " Como supervisor, tem também a revisão cega, as regras e os destinatários dos alertas, a conservação de dados, as cópias de segurança e a troca entre o modo real e a demonstração." : "") },
     { alvo: "[data-paleta-abrir]", titulo: "Procurar (Ctrl+K)", texto: "Chegue a qualquer página ou acção escrevendo parte do nome, por exemplo «mapa 7» ou «tema escuro»." },
     { alvo: "[data-tema-alternar]", titulo: "Tema", texto: "Alterna entre automático (segue o sistema), escuro e claro. A escolha fica guardada na sua conta." },
@@ -793,9 +801,10 @@
       lateral.classList.toggle("aberto", noMenu); alternar.setAttribute("aria-expanded", noMenu ? "true" : "false");
     }
     if (alvo && alvo.scrollIntoView) alvo.scrollIntoView({ block: "nearest" });
-    var r = alvo ? alvo.getBoundingClientRect() : null;
+    var z = escalaZoom(), r0 = alvo ? alvo.getBoundingClientRect() : null;
+    var r = r0 && { left: r0.left / z, top: r0.top / z, right: r0.right / z, bottom: r0.bottom / z, width: r0.width / z, height: r0.height / z };
     visitaCartao.hidden = false;
-    var w = visitaCartao.offsetWidth, h = visitaCartao.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    var w = visitaCartao.offsetWidth, h = visitaCartao.offsetHeight, vw = window.innerWidth / z, vh = window.innerHeight / z;
     if (r && r.width && r.height) {
       visitaFoco.hidden = false;
       visitaFoco.style.top = (r.top - 4) + "px"; visitaFoco.style.left = (r.left - 4) + "px";
@@ -868,7 +877,7 @@
     dados.csrf = csrf();
     return enviar("/aspecto", dados).catch(function (e) { toast(e.message, { tipo: "erro" }); });
   }
-  var PADRAO_ASPECTO = { cor: "azul", menu: "escuro", cantos: "arredondados", movimento: "normal" };
+  var PADRAO_ASPECTO = { cor: "azul", menu: "escuro", cantos: "arredondados", movimento: "normal", letra: "normal", densidade: "normal" };
   function aplicarAspecto(nome, valor) {
     var raiz = document.documentElement;
     if (nome === "tema") { aplicarTema(valor === "auto" ? "" : valor); return; }
