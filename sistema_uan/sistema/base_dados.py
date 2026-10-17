@@ -92,7 +92,18 @@ CREATE TABLE IF NOT EXISTS utilizadores (
     criado_em      TEXT NOT NULL,
     ultimo_acesso  TEXT,
     falhas         INTEGER NOT NULL DEFAULT 0,
-    bloqueado_ate  TEXT
+    bloqueado_ate  TEXT,
+    senha_temporaria INTEGER NOT NULL DEFAULT 0, -- 1: tem de mudar a palavra-passe ao entrar
+    codigo_recuperacao TEXT,                    -- hash do código de recuperação pessoal (uso único)
+    codigo_criado_em   TEXT
+);
+CREATE TABLE IF NOT EXISTS pedidos_recuperacao (
+    id_pedido     INTEGER PRIMARY KEY AUTOINCREMENT,
+    utilizador    TEXT NOT NULL,
+    pedido_em     TEXT NOT NULL,
+    estado        TEXT NOT NULL DEFAULT 'pendente',   -- pendente | resolvido | recusado
+    resolvido_por TEXT,
+    resolvido_em  TEXT
 );
 CREATE TABLE IF NOT EXISTS sessoes (
     token_hash  TEXT PRIMARY KEY,
@@ -183,6 +194,12 @@ def _migrar(c: sqlite3.Connection) -> None:
             DROP TABLE revisoes_v01;
             CREATE INDEX IF NOT EXISTS ix_rev_analista ON revisoes(analista);
         """)
+    cols_u = _colunas(c, "utilizadores")
+    if cols_u and "senha_temporaria" not in cols_u:
+        c.execute("ALTER TABLE utilizadores ADD COLUMN senha_temporaria INTEGER NOT NULL DEFAULT 0")
+    if cols_u and "codigo_recuperacao" not in cols_u:
+        c.execute("ALTER TABLE utilizadores ADD COLUMN codigo_recuperacao TEXT")
+        c.execute("ALTER TABLE utilizadores ADD COLUMN codigo_criado_em TEXT")
     if "importado_por" not in _colunas(c, "lotes"):
         c.execute("ALTER TABLE lotes ADD COLUMN importado_por TEXT")
     if "id_fonte" not in _colunas(c, "lotes"):

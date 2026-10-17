@@ -2,6 +2,34 @@
 {% block titulo %}Utilizadores{% endblock %}
 {% block conteudo %}
 <div class="cabecalho"><div><h1>Utilizadores</h1><p>Os analistas revêem a fila; os supervisores importam lotes, vêem as métricas e gerem contas.</p></div></div>
+{% if temporaria %}
+<div class="cartao destaque-temporaria" role="status">
+  <h2>Palavra-passe temporária de <span class="mono">{{ temporaria.utilizador }}</span></h2>
+  <output class="codigo-mostrado mono" id="temp-valor">{{ temporaria.senha }}</output>
+  <button class="botao pequeno secundario" type="button" data-copiar="#temp-valor">Copiar</button>
+  <p class="ajuda">Entregue-a em mão ou por um canal de confiança. Não volta a ser mostrada. A pessoa tem de a mudar logo ao entrar; as sessões abertas dessa conta foram terminadas.</p>
+</div>
+{% endif %}
+{% if pedidos %}
+<div class="cartao" id="pedidos-recuperacao">
+  <h2>Pedidos de recuperação <span class="contador">{{ pedidos|length }}</span></h2>
+  <p class="suave">Pessoas que se esqueceram da palavra-passe e não têm código de recuperação. Confirme a identidade antes de gerar a palavra-passe temporária.</p>
+  <div class="tabela-envolvente"><table class="tabela"><thead><tr><th>Utilizador</th><th>Nome</th><th>Papel</th><th>Pedido em</th><th>Acções</th></tr></thead><tbody>
+  {% for p in pedidos %}<tr>
+    <td class="mono">{{ p.utilizador }}</td><td>{{ p.nome }}</td><td>{{ p.papel }}</td><td>{{ p.pedido_em|hora }}</td>
+    <td class="linha-form">
+      {% if p.utilizador != sessao.utilizador %}
+      <form method="post" action="/utilizadores/{{ p.utilizador }}/repor" data-confirmar="Gerar uma palavra-passe temporária para {{ p.utilizador }}? A palavra-passe actual deixa de valer.">
+        <input type="hidden" name="csrf" value="{{ sessao.csrf }}"><button class="botao pequeno" type="submit">Gerar palavra-passe temporária</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/utilizadores/pedidos/{{ p.id_pedido }}/recusar">
+        <input type="hidden" name="csrf" value="{{ sessao.csrf }}"><button class="botao pequeno secundario" type="submit">Recusar</button>
+      </form>
+    </td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endif %}
 <div class="cartao">
   <h2>Nova conta</h2>
   <form class="linha-form" method="post" action="/utilizadores/criar">
@@ -12,24 +40,31 @@
     <div class="campo"><label for="n-s">Palavra-passe inicial</label><input id="n-s" type="password" name="senha" minlength="10" autocomplete="new-password" required></div>
     <button class="botao" type="submit">Criar</button>
   </form>
-  <p class="ajuda">Entregue a palavra-passe inicial em mão e peça ao analista que a mude em «A minha conta».</p>
+  <p class="ajuda">Entregue a palavra-passe inicial em mão e peça ao analista que a mude em «A minha conta» e que gere lá o seu código de recuperação.</p>
 </div>
 <div class="cartao"><div class="tabela-envolvente"><table class="tabela"><thead><tr><th>Utilizador</th><th>Nome</th><th>Papel</th><th class="num">Revisões</th><th>Último acesso</th><th>Estado</th><th>Acções</th></tr></thead><tbody>
 {% for u in utilizadores %}<tr>
   <td class="mono">{{ u.utilizador }}</td><td>{{ u.nome }}</td><td>{{ u.papel }}</td><td class="num">{{ u.revisoes|num }}</td><td>{{ u.ultimo_acesso|hora }}</td>
-  <td>{% if u.activo %}<span class="pilula forte">activo</span>{% else %}<span class="pilula">inactivo</span>{% endif %}</td>
+  <td>{% if u.activo %}<span class="pilula forte">activo</span>{% else %}<span class="pilula">inactivo</span>{% endif %}
+    {% if u.senha_temporaria %}<span class="pilula aviso" title="Ainda não mudou a palavra-passe temporária">temporária</span>{% endif %}
+    {% if u.codigo_recuperacao %}<span class="pilula" title="Tem código de recuperação activo">código</span>{% endif %}</td>
   <td>
     {% if u.utilizador != sessao.utilizador %}
     <form method="post" action="/utilizadores/{{ u.utilizador }}/estado" class="linha-form" data-confirmar="{{ 'Desactivar' if u.activo else 'Reactivar' }} a conta {{ u.utilizador }}?">
       <input type="hidden" name="csrf" value="{{ sessao.csrf }}"><input type="hidden" name="activo" value="{{ 0 if u.activo else 1 }}">
       <button class="botao pequeno {{ 'perigo' if u.activo else 'secundario' }}" type="submit">{{ 'Desactivar' if u.activo else 'Reactivar' }}</button>
     </form>
-    <details class="mt"><summary class="suave">Nova palavra-passe</summary>
+    <details class="mt"><summary class="suave">Repor a palavra-passe</summary>
+      <form method="post" action="/utilizadores/{{ u.utilizador }}/repor" class="linha-form mt" data-confirmar="Gerar uma palavra-passe temporária para {{ u.utilizador }}?">
+        <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+        <button class="botao pequeno" type="submit">Gerar temporária</button>
+      </form>
       <form method="post" action="/utilizadores/{{ u.utilizador }}/senha" class="linha-form mt">
         <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
-        <input type="password" name="senha" minlength="10" autocomplete="new-password" required aria-label="Nova palavra-passe">
+        <input type="password" name="senha" minlength="10" autocomplete="new-password" required aria-label="Palavra-passe escolhida por si" placeholder="ou escreva uma">
         <button class="botao pequeno secundario" type="submit">Definir</button>
       </form>
+      <p class="ajuda">Em ambos os casos a pessoa tem de a mudar ao entrar.</p>
     </details>
     {% else %}<span class="suave">a sua conta</span>{% endif %}
   </td></tr>{% endfor %}

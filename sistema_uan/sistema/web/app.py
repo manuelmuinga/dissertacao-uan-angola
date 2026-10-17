@@ -40,7 +40,9 @@ from ..recolha import TIPOS as TIPOS_FONTE, ErroRecolha, adicionar_fonte, adicio
 from ..servico import (VIAS, classificacao_em_curso, classificar_pendentes, exportar_revisoes,
                        gerar_amostra_controlo, importar, metricas, panorama)
 from ..utilizadores import (ErroAutenticacao, autenticar, criar_sessao, criar_utilizador, definir_activo,
-                            mudar_senha, obter_sessao, terminar_sessao)
+                            mudar_senha, obter_sessao, terminar_sessao,
+                            gerar_codigo_recuperacao, pedidos_pendentes, pedir_recuperacao, recuperar_com_codigo,
+                            recusar_pedido, repor_temporaria)
 
 log = logging.getLogger(__name__)
 PASTA = Path(__file__).resolve().parent
@@ -72,6 +74,10 @@ AVISOS = {
     "relatorio_enviado": ("ok", "Relatório enviado por e-mail aos destinatários definidos."),
     "desfeita": ("ok", "Decisão desfeita. O item voltou à fila."),
     "aspecto": ("ok", "Aspecto gravado."),
+    "temporaria": ("aviso", "Entrou com uma palavra-passe temporária. Escolha agora uma palavra-passe sua para continuar."),
+    "recuperada": ("ok", "Palavra-passe alterada com o código de recuperação. Entre com a palavra-passe nova. "
+                         "O código usado deixou de valer: gere outro em «A minha conta»."),
+    "pedido_recusado": ("ok", "Pedido de recuperação recusado."),
 }
 VIAS_NOMES = {
     "api_oficial": "API oficial da plataforma",
@@ -96,6 +102,15 @@ class PedidoRevisao(BaseModel):
 class PrecisaEntrar(Exception):
     def __init__(self, seguinte: str = "/"):
         self.seguinte = seguinte
+
+
+class PrecisaMudarSenha(Exception):
+    """Entrou com uma palavra-passe temporária: só pode ir a «A minha conta» até a mudar."""
+
+
+# caminhos permitidos a quem entrou com palavra-passe temporária
+LIVRES_SENHA_TEMPORARIA = {"/conta", "/conta/senha", "/conta/codigo", "/sair", "/estado", "/sistema/estado",
+                           "/alertas/recentes", "/aspecto"}
 
 
 class SemPermissao(Exception):
@@ -301,6 +316,12 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     async def _entrar(request: Request, exc: PrecisaEntrar):
         return RedirectResponse(f"/entrar?seguinte={quote(exc.seguinte)}", status_code=303)
 
+    @app.exception_handler(PrecisaMudarSenha)
+    async def _mudar_senha(request: Request, exc: PrecisaMudarSenha):
+        if request.url.path.startswith("/api") or request.headers.get("X-Pedido") == "fetch":
+            return JSONResponse({"detail": "Tem de mudar a palavra-passe temporária em «A minha conta»."}, status_code=403)
+        return RedirectResponse("/conta?aviso=temporaria", status_code=303)
+
     @app.exception_handler(SemPermissao)
     async def _proibido(request: Request, exc: SemPermissao):
         return pagina(request, "erro.html", {"titulo": "Sem permissão",
@@ -325,6 +346,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             seguinte = request.url.path + (f"?{request.url.query}" if request.url.query else "")
             raise PrecisaEntrar(seguinte)
         request.state.sessao = s
+        if s.get("senha_temporaria") and request.url.path not in LIVRES_SENHA_TEMPORARIA:
+            raise PrecisaMudarSenha()
         if papel and s["papel"] != papel:
             raise SemPermissao()
         return s
@@ -355,6 +378,7 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             base["visita_pendente"] = bd.definicao(f"visita_vista:{s['utilizador']}", "0") != "1"
             base["n_fila_meus"] = bd.n_fila(s["utilizador"])
             base["n_amostra_meus"] = len(bd.fila_amostra(s["utilizador"], 10**6))
+            base["n_pedidos_senha"] = len(pedidos_pendentes(bd)) if s["papel"] == "supervisor" else 0
             base["n_alertas_novos"] = bd.consultar(
                 """SELECT COUNT(*) AS n FROM alertas a WHERE NOT EXISTS
                    (SELECT 1 FROM alertas_vistos v WHERE v.id_alerta = a.id_alerta AND v.utilizador = ?)""",
@@ -408,7 +432,9 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
             return pagina(request, "entrar.html", {"seguinte": destino_seguro(seguinte), "erro": str(e),
                                                    "utilizador": utilizador}, 401)
         token = criar_sessao(bd, u["utilizador"], cfg.horas_sessao)
-        resp = ir(destino_seguro(seguinte))
+        temporaria = bd.consultar("SELECT senha_temporaria FROM utilizadores WHERE utilizador = ?",
+                                  (u["utilizador"],))[0]["senha_temporaria"]
+        resp = ir("/conta", "temporaria") if temporaria else ir(destino_seguro(seguinte))
         resp.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=cfg.cookie_seguro,
                         max_age=cfg.horas_sessao * 3600, path="/")
         return resp
@@ -422,6 +448,27 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         resp = ir("/entrar", "saiu")
         resp.delete_cookie(COOKIE, path="/")
         return resp
+
+    # ------------------------------------------------------------------ recuperação da palavra-passe
+    @app.get("/recuperar", response_class=HTMLResponse)
+    def recuperar_form(request: Request, utilizador: str = ""):
+        if sem_utilizadores():
+            return ir("/configurar")
+        return pagina(request, "recuperar.html", {"utilizador": utilizador[:40]})
+
+    @app.post("/recuperar/codigo")
+    def recuperar_codigo(request: Request, utilizador: str = Form(""), codigo: str = Form(""), senha: str = Form(""),
+                         senha2: str = Form("")):
+        try:
+            recuperar_com_codigo(bd, utilizador, codigo, senha, senha2)
+        except (ErroAutenticacao, ValueError) as e:
+            return pagina(request, "recuperar.html", {"erro": str(e), "utilizador": utilizador[:40]}, 400)
+        return ir("/entrar", "recuperada")
+
+    @app.post("/recuperar/pedido")
+    def recuperar_pedido(request: Request, utilizador: str = Form("")):
+        pedir_recuperacao(bd, utilizador)
+        return pagina(request, "recuperar.html", {"pedido_feito": True, "utilizador": utilizador[:40]})
 
     @app.get("/configurar", response_class=HTMLResponse)
     def configurar_form(request: Request):
@@ -1011,11 +1058,29 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
     @app.get("/utilizadores", response_class=HTMLResponse)
     def utilizadores(request: Request):
         sessao(request, "supervisor")
-        rows = bd.consultar(
-            """SELECT u.utilizador, u.nome, u.papel, u.activo, u.criado_em, u.ultimo_acesso,
-                      (SELECT COUNT(*) FROM revisoes r WHERE r.analista = u.utilizador) AS revisoes
-               FROM utilizadores u ORDER BY u.activo DESC, u.papel DESC, u.utilizador""")
-        return pagina(request, "utilizadores.html", {"utilizadores": rows})
+        return pagina(request, "utilizadores.html", {"utilizadores": _lista_utilizadores(), "pedidos": pedidos_pendentes(bd)})
+
+    def _lista_utilizadores() -> list:
+        return bd.consultar("""SELECT u.*, (SELECT COUNT(*) FROM revisoes r WHERE r.analista = u.utilizador) AS revisoes
+                               FROM utilizadores u ORDER BY u.activo DESC, u.papel DESC, u.utilizador""")
+
+    @app.post("/utilizadores/{utilizador}/repor")
+    def utilizadores_repor(request: Request, utilizador: str, csrf: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        try:
+            senha = repor_temporaria(bd, utilizador, s["utilizador"])
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return pagina(request, "utilizadores.html", {"utilizadores": _lista_utilizadores(), "pedidos": pedidos_pendentes(bd),
+                                                     "temporaria": {"utilizador": utilizador, "senha": senha}})
+
+    @app.post("/utilizadores/pedidos/{id_pedido}/recusar")
+    def utilizadores_recusar(request: Request, id_pedido: int, csrf: str = Form("")):
+        s = sessao(request, "supervisor")
+        verificar_csrf(s, csrf)
+        recusar_pedido(bd, id_pedido, s["utilizador"])
+        return ir("/utilizadores", "pedido_recusado")
 
     @app.post("/utilizadores/criar")
     def utilizadores_criar(request: Request, csrf: str = Form(""), utilizador: str = Form(""), nome: str = Form(""),
@@ -1025,9 +1090,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         try:
             criar_utilizador(bd, utilizador, nome, papel, senha, quem=s["utilizador"])
         except ValueError as e:
-            rows = bd.consultar("""SELECT u.*, (SELECT COUNT(*) FROM revisoes r WHERE r.analista = u.utilizador) AS revisoes
-                                   FROM utilizadores u ORDER BY u.activo DESC, u.papel DESC, u.utilizador""")
-            return pagina(request, "utilizadores.html", {"utilizadores": rows, "erro": str(e),
+            return pagina(request, "utilizadores.html", {"utilizadores": _lista_utilizadores(), "erro": str(e),
+                                                         "pedidos": pedidos_pendentes(bd),
                                                          "form": {"utilizador": utilizador, "nome": nome, "papel": papel}}, 400)
         return ir("/utilizadores", "utilizador")
 
@@ -1046,7 +1110,8 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         s = sessao(request, "supervisor")
         verificar_csrf(s, csrf)
         try:
-            mudar_senha(bd, utilizador, senha, s["utilizador"])
+            # definida por outra pessoa: a pessoa tem de a mudar ao entrar
+            mudar_senha(bd, utilizador, senha, s["utilizador"], temporaria=utilizador != s["utilizador"])
         except ValueError as e:
             raise HTTPException(400, str(e))
         return ir("/utilizadores", "senha")
@@ -1071,6 +1136,20 @@ def criar_app(cfg: Config | None = None, clf: Classificador | None = None, sincr
         resp = ir("/entrar", "senha")
         resp.delete_cookie(COOKIE, path="/")
         return resp
+
+    @app.post("/conta/codigo")
+    def conta_codigo(request: Request, csrf: str = Form(""), actual: str = Form("")):
+        s = sessao(request)
+        verificar_csrf(s, csrf)
+        if s.get("senha_temporaria"):
+            return pagina(request, "conta.html", {"erro_codigo": "Mude primeiro a palavra-passe temporária."}, 400)
+        try:
+            autenticar(bd, s["utilizador"], actual)
+        except ErroAutenticacao as e:
+            return pagina(request, "conta.html", {"erro_codigo": str(e)}, 400)
+        codigo = gerar_codigo_recuperacao(bd, s["utilizador"])
+        request.state.sessao = obter_sessao(bd, request.cookies.get(COOKIE))
+        return pagina(request, "conta.html", {"codigo_novo": codigo})
 
     # ------------------------------------------------------------------ definições
     @app.get("/definicoes", response_class=HTMLResponse)

@@ -949,3 +949,23 @@ mark.mascara {
   .ajuda, .suave { color: #444; }
   * { animation: none !important; transition: none !important; }
 }
+
+/* 23. Recuperação do acesso -------------------------------------------------- */
+.entrada-ligacao { text-align: center; margin: 14px 0 0; font-size: 13.5px; }
+.entrada-titulo { font-size: 18px; margin: 0 0 14px; }
+.recuperar-opcao { border: 1px solid var(--linha); border-radius: var(--raio); margin-bottom: 10px; background: var(--cartao); }
+.recuperar-opcao > summary { cursor: pointer; padding: 12px 14px; list-style: none; display: grid; gap: 2px; }
+.recuperar-opcao > summary::-webkit-details-marker { display: none; }
+.recuperar-opcao > summary b::before { content: "▸"; display: inline-block; width: 16px; color: var(--suave); }
+.recuperar-opcao[open] > summary b::before { content: "▾"; }
+.recuperar-opcao > summary span { font-size: 12.5px; color: var(--suave); padding-left: 16px; }
+.recuperar-opcao form { padding: 0 14px 14px; }
+.recuperar-opcao .botao.secundario { width: 100%; }
+.codigo-mostrado {
+  display: inline-block; font-size: 20px; letter-spacing: .06em; font-weight: 700; padding: 8px 14px; margin: 4px 10px 8px 0;
+  border: 1px dashed var(--marca); border-radius: var(--raio); background: var(--superficie-2); color: var(--tinta);
+  user-select: all; word-break: break-all;
+}
+.pilula.aviso { background: var(--aviso-fundo); color: var(--aviso); font-weight: 600; }
+.destaque-temporaria { border-color: var(--aviso-borda); background: var(--aviso-fundo); }
+.conta-grelha { align-items: start; }

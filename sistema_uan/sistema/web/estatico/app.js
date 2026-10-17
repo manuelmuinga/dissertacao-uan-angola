@@ -972,4 +972,21 @@
   });
   var esperaServidor = document.querySelector("[data-troca-espera]");
   if (esperaServidor) esperarTroca(esperaServidor.getAttribute("data-troca-espera"));
+
+  /* ---------- copiar códigos (recuperação, palavra-passe temporária) ---------- */
+  cada("[data-copiar]", function (b) {
+    b.addEventListener("click", function () {
+      var alvo = document.querySelector(b.getAttribute("data-copiar"));
+      if (!alvo) return;
+      var texto = alvo.textContent.trim();
+      var ok = function () { toast("Copiado. Guarde-o num local seguro."); };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texto).then(ok, function () { seleccionar(alvo); });
+      } else { seleccionar(alvo); try { if (document.execCommand("copy")) ok(); } catch (e) { /* fica seleccionado */ } }
+    });
+  });
+  function seleccionar(el) {
+    var r = document.createRange(); r.selectNodeContents(el);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
 })();

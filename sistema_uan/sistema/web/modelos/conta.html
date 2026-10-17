@@ -2,14 +2,41 @@
 {% block titulo %}A minha conta{% endblock %}
 {% block conteudo %}
 <div class="cabecalho"><div><h1>A minha conta</h1><p>{{ sessao.nome }} · <span class="mono">{{ sessao.utilizador }}</span> · {{ sessao.papel }}</p></div></div>
-<div class="cartao" style="max-width:480px">
+<div class="grelha g2 conta-grelha">
+<div class="cartao">
   <h2>Mudar a palavra-passe</h2>
+  {% if erro %}<div class="faixa perigo" role="alert">{{ erro }}</div>{% endif %}
   <form method="post" action="/conta/senha">
     <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
-    <div class="campo"><label for="c-a">Palavra-passe actual</label><input id="c-a" type="password" name="actual" autocomplete="current-password" required></div>
+    <div class="campo"><label for="c-a">{{ 'Palavra-passe temporária (a que recebeu do supervisor)' if sessao.senha_temporaria else 'Palavra-passe actual' }}</label><input id="c-a" type="password" name="actual" autocomplete="current-password" required></div>
     <div class="campo"><label for="c-n">Nova palavra-passe</label><input id="c-n" type="password" name="senha" minlength="10" autocomplete="new-password" required><div class="ajuda">Pelo menos 10 caracteres.</div></div>
     <div class="campo"><label for="c-n2">Repetir a nova palavra-passe</label><input id="c-n2" type="password" name="senha2" minlength="10" autocomplete="new-password" required></div>
     <button class="botao" type="submit">Mudar e voltar a entrar</button>
   </form>
+</div>
+<div class="cartao" id="codigo-recuperacao">
+  <h2>Código de recuperação</h2>
+  {% if codigo_novo %}
+  <div class="codigo-novo" role="status">
+    <p><b>Guarde este código agora.</b> Não volta a ser mostrado.</p>
+    <output class="codigo-mostrado mono" id="codigo-valor">{{ codigo_novo }}</output>
+    <button class="botao pequeno secundario" type="button" data-copiar="#codigo-valor">Copiar</button>
+    <p class="ajuda">Escreva-o em papel ou num gestor de palavras-passe, longe do computador. Se se esquecer da palavra-passe, use «Esqueceu-se da palavra-passe?» na página de entrada. O código serve uma vez.</p>
+  </div>
+  {% else %}
+  <p>Serve para mudar a palavra-passe sozinho, sem pedir ao supervisor, se a esquecer.</p>
+  <p>{% if sessao.codigo_criado_em %}<span class="pilula forte">activo</span> Código gerado em {{ sessao.codigo_criado_em|hora }}. Gerar outro anula este.{% else %}<span class="pilula">sem código</span> Ainda não tem código de recuperação.{% endif %}</p>
+  {% if erro_codigo %}<div class="faixa perigo" role="alert">{{ erro_codigo }}</div>{% endif %}
+  {% if sessao.senha_temporaria %}
+  <p class="ajuda">Mude primeiro a palavra-passe temporária.</p>
+  {% else %}
+  <form method="post" action="/conta/codigo">
+    <input type="hidden" name="csrf" value="{{ sessao.csrf }}">
+    <div class="campo"><label for="g-a">Confirme com a palavra-passe actual</label><input id="g-a" type="password" name="actual" autocomplete="current-password" required></div>
+    <button class="botao secundario" type="submit">{{ 'Gerar novo código' if sessao.codigo_criado_em else 'Gerar código de recuperação' }}</button>
+  </form>
+  {% endif %}
+  {% endif %}
+</div>
 </div>
 {% endblock %}

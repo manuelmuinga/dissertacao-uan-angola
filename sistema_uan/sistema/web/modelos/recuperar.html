@@ -1,0 +1,30 @@
+{% extends "entrar.html" %}
+{% block titulo %}Recuperar o acesso{% endblock %}
+{% block corpo %}
+<h1 class="entrada-titulo">Recuperar o acesso</h1>
+{% if erro %}<div class="faixa perigo" role="alert">{{ erro }}</div>{% endif %}
+{% if pedido_feito %}
+<div class="faixa ok" role="status"><b>Pedido registado.</b> Se a conta <span class="mono">{{ utilizador }}</span> existir e estiver activa, os supervisores vêem o pedido na página «Utilizadores». O supervisor entrega-lhe em mão uma palavra-passe temporária, que tem de mudar logo ao entrar.</div>
+<p class="entrada-ligacao"><a href="/entrar">Voltar à entrada</a></p>
+{% else %}
+<details class="recuperar-opcao" {{ 'open' if erro or not pedido_feito }}>
+  <summary><b>Tenho o meu código de recuperação</b><span>O código de 16 caracteres que gerou em «A minha conta».</span></summary>
+  <form method="post" action="/recuperar/codigo" autocomplete="off">
+    <div class="campo"><label for="r-u">Utilizador</label><input id="r-u" type="text" name="utilizador" value="{{ utilizador or '' }}" autocomplete="username" required></div>
+    <div class="campo"><label for="r-c">Código de recuperação</label><input id="r-c" type="text" name="codigo" class="mono" placeholder="XXXX-XXXX-XXXX-XXXX" autocapitalize="characters" spellcheck="false" required><div class="ajuda">Maiúsculas, minúsculas e hífenes são indiferentes. O código só serve uma vez.</div></div>
+    <div class="campo"><label for="r-s">Nova palavra-passe</label><input id="r-s" type="password" name="senha" minlength="10" autocomplete="new-password" required><div class="ajuda">Pelo menos 10 caracteres.</div></div>
+    <div class="campo"><label for="r-s2">Repetir a nova palavra-passe</label><input id="r-s2" type="password" name="senha2" minlength="10" autocomplete="new-password" required></div>
+    <button class="botao" type="submit">Mudar a palavra-passe</button>
+  </form>
+</details>
+<details class="recuperar-opcao">
+  <summary><b>Não tenho código</b><span>Pedir a um supervisor uma palavra-passe temporária.</span></summary>
+  <form method="post" action="/recuperar/pedido">
+    <div class="campo"><label for="p-u">Utilizador</label><input id="p-u" type="text" name="utilizador" value="{{ utilizador or '' }}" autocomplete="username" required></div>
+    <button class="botao secundario" type="submit">Enviar pedido ao supervisor</button>
+    <p class="ajuda">O pedido aparece só dentro do sistema; nada é enviado por e-mail. Se for o único supervisor, peça a quem administra o computador do servidor para correr <span class="mono">python uan.py repor-senha {{ utilizador or '&lt;utilizador&gt;'|safe }}</span>.</p>
+  </form>
+</details>
+<p class="entrada-ligacao"><a href="/entrar">Voltar à entrada</a></p>
+{% endif %}
+{% endblock %}

@@ -9,6 +9,7 @@ Exemplos (Windows, cmd):
     python uan.py limpar --dias 180
     python uan.py medir-latencia dados\\comentarios.csv --repeticoes 3
     python uan.py criar-utilizador supervisor --nome "Manuel Muinga" --papel supervisor
+    python uan.py repor-senha supervisor        (esqueceu a palavra-passe)
     python uan.py servir
     python uan.py copia
     python uan.py fonte-adicionar --tipo rss --endereco https://exemplo.ao/feed --nome "Jornal X"
@@ -149,6 +150,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--repor", action="store_true", help="com --demonstracao: apaga e recria os dados fictícios")
     p = sub.add_parser("criar-utilizador", help="Cria uma conta (pede a palavra-passe)")
     p.add_argument("utilizador"); p.add_argument("--nome", required=True); p.add_argument("--papel", choices=PAPEIS, default="analista")
+    p = sub.add_parser("repor-senha", help="Repõe a palavra-passe de uma conta e desbloqueia-a (quando o supervisor a esqueceu)")
+    p.add_argument("utilizador")
+    p.add_argument("--temporaria", action="store_true", help="gera uma palavra-passe temporária, a mudar ao entrar")
+    p.add_argument("--demonstracao", action="store_true", help="na base de demonstração (dados\\demonstracao.db)")
     sub.add_parser("copia", help="Cópia de segurança da base de dados para dados\\copias")
     from sistema.recolha import TIPOS as TIPOS_FONTE
     p = sub.add_parser("fonte-adicionar", help="Acrescenta uma ou mais fontes de recolha (tipo detectado automaticamente)")
@@ -177,6 +182,28 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("As palavras-passe não coincidem.")
         criar_utilizador(bd, a.utilizador, a.nome, a.papel, senha, quem="linha_de_comandos")
         print(f"Utilizador {a.utilizador} ({a.papel}) criado.")
+        return
+    if a.cmd == "repor-senha":
+        from sistema.utilizadores import mudar_senha, repor_temporaria
+        if a.demonstracao:
+            from sistema.demonstracao import caminho_bd
+            bd = BaseDados(caminho_bd(Path(cfg.caminho_bd).parent))
+        u = a.utilizador.strip().lower()
+        if not bd.consultar("SELECT 1 FROM utilizadores WHERE utilizador = ?", (u,)):
+            contas = ", ".join(r["utilizador"] for r in bd.consultar("SELECT utilizador FROM utilizadores ORDER BY 1"))
+            raise SystemExit(f"O utilizador {u} não existe. Contas nesta base de dados: {contas or 'nenhuma'}.")
+        with bd.ligacao() as c:  # quem repõe na linha de comandos também reactiva a conta
+            c.execute("UPDATE utilizadores SET activo = 1 WHERE utilizador = ?", (u,))
+        if a.temporaria:
+            senha = repor_temporaria(bd, u, quem="linha_de_comandos")
+            print(f"Palavra-passe temporária de {u}: {senha}")
+            print("Tem de ser mudada logo ao entrar.")
+        else:
+            senha = getpass.getpass("Nova palavra-passe (mín. 10 caracteres): ")
+            if senha != getpass.getpass("Repetir: "):
+                raise SystemExit("As palavras-passe não coincidem.")
+            mudar_senha(bd, u, senha, quem="linha_de_comandos")
+            print(f"Palavra-passe de {u} alterada. A conta foi desbloqueada.")
         return
     if a.cmd == "copia":
         from datetime import datetime

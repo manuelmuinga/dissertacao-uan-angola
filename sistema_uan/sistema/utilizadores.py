@@ -5,6 +5,11 @@
 - Sessões do lado do servidor: o navegador guarda só um token aleatório; a base
   de dados guarda o hash desse token, nunca o token.
 - Cinco tentativas falhadas bloqueiam a conta durante 5 minutos.
+- Recuperação de quem esquece a palavra-passe, sem e-mail nem serviços externos:
+  * código de recuperação pessoal (gerado em «A minha conta», mostrado uma só vez,
+    guardado como hash, serve uma vez);
+  * pedido ao supervisor, que gera uma palavra-passe temporária (mudança obrigatória ao entrar);
+  * na linha de comandos, «python uan.py repor-senha <utilizador>» (para o último supervisor).
 """
 
 from __future__ import annotations
@@ -65,13 +70,122 @@ def criar_utilizador(bd: BaseDados, utilizador: str, nome: str, papel: str, senh
     bd.auditar(quem, "utilizador_criado", {"utilizador": utilizador, "papel": papel})
 
 
-def mudar_senha(bd: BaseDados, utilizador: str, senha: str, quem: str) -> None:
+def mudar_senha(bd: BaseDados, utilizador: str, senha: str, quem: str, temporaria: bool = False) -> None:
+    """Define a palavra-passe, desbloqueia a conta e termina as sessões abertas.
+
+    temporaria=True: a pessoa tem de a mudar logo que entrar (usada quando outra pessoa a definiu).
+    """
     validar_senha(senha)
+    if not bd.consultar("SELECT 1 FROM utilizadores WHERE utilizador = ?", (utilizador,)):
+        raise ValueError(f"O utilizador {utilizador} não existe.")
     with bd.ligacao() as c:
-        c.execute("UPDATE utilizadores SET hash_senha = ?, falhas = 0, bloqueado_ate = NULL WHERE utilizador = ?",
-                  (hash_senha(senha), utilizador))
+        c.execute("""UPDATE utilizadores SET hash_senha = ?, falhas = 0, bloqueado_ate = NULL, senha_temporaria = ?
+                     WHERE utilizador = ?""", (hash_senha(senha), int(temporaria), utilizador))
         c.execute("DELETE FROM sessoes WHERE utilizador = ?", (utilizador,))
-    bd.auditar(quem, "senha_alterada", {"utilizador": utilizador})
+    bd.auditar(quem, "senha_temporaria_definida" if temporaria else "senha_alterada", {"utilizador": utilizador})
+
+
+# ---------------------------------------------------------------------------- recuperação
+_ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sem 0/O nem 1/I/L, fáceis de confundir ao copiar
+
+
+def _aleatorio(n: int, grupo: int = 4) -> str:
+    x = "".join(secrets.choice(_ALFABETO) for _ in range(n))
+    return "-".join(x[i:i + grupo] for i in range(0, n, grupo))
+
+
+def _normalizar_codigo(codigo: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", (codigo or "").upper())
+
+
+def gerar_codigo_recuperacao(bd: BaseDados, utilizador: str) -> str:
+    """Novo código pessoal (16 caracteres, cerca de 80 bits). Substitui o anterior; mostra-se uma só vez."""
+    codigo = _aleatorio(16)
+    with bd.ligacao() as c:
+        c.execute("UPDATE utilizadores SET codigo_recuperacao = ?, codigo_criado_em = ? WHERE utilizador = ?",
+                  (hash_senha(_normalizar_codigo(codigo)), agora(), utilizador))
+    bd.auditar(utilizador, "codigo_recuperacao_gerado", None)
+    return codigo
+
+
+def _falha(bd: BaseDados, u: dict, motivo: str, accao: str) -> None:
+    falhas = u["falhas"] + 1
+    bloqueio = (datetime.now(timezone.utc) + timedelta(minutes=MINUTOS_BLOQUEIO)).isoformat() if falhas >= MAX_FALHAS else None
+    with bd.ligacao() as c:
+        c.execute("UPDATE utilizadores SET falhas = ?, bloqueado_ate = ? WHERE utilizador = ?",
+                  (0 if bloqueio else falhas, bloqueio, u["utilizador"]))
+    bd.auditar(u["utilizador"], accao, {"motivo": motivo})
+
+
+def recuperar_com_codigo(bd: BaseDados, utilizador: str, codigo: str, senha: str, senha2: str) -> None:
+    """Muda a palavra-passe com o código de recuperação. O código deixa de valer depois de usado.
+
+    Conta para o mesmo limite de tentativas que a entrada (5 falhas bloqueiam 5 minutos).
+    """
+    utilizador = (utilizador or "").strip().lower()
+    erro = "Utilizador ou código de recuperação incorrectos."
+    if senha != senha2:
+        raise ValueError("As duas palavras-passe novas não coincidem.")
+    validar_senha(senha)
+    r = bd.consultar("SELECT * FROM utilizadores WHERE utilizador = ?", (utilizador,))
+    if not r:
+        hash_senha("x")
+        bd.auditar(utilizador or "?", "recuperacao_falhada", {"motivo": "desconhecido"})
+        raise ErroAutenticacao(erro)
+    u = dict(r[0])
+    if u["bloqueado_ate"] and datetime.fromisoformat(u["bloqueado_ate"]) > datetime.now(timezone.utc):
+        raise ErroAutenticacao("Conta bloqueada temporariamente por tentativas falhadas. Tente daqui a alguns minutos.")
+    if not u["activo"] or not u["codigo_recuperacao"] or \
+            not verificar_senha(_normalizar_codigo(codigo), u["codigo_recuperacao"]):
+        motivo = "inactivo" if not u["activo"] else ("sem_codigo" if not u["codigo_recuperacao"] else "codigo")
+        _falha(bd, u, motivo, "recuperacao_falhada")
+        raise ErroAutenticacao(erro)
+    mudar_senha(bd, utilizador, senha, quem=utilizador)
+    with bd.ligacao() as c:
+        c.execute("UPDATE utilizadores SET codigo_recuperacao = NULL, codigo_criado_em = NULL WHERE utilizador = ?",
+                  (utilizador,))
+        c.execute("""UPDATE pedidos_recuperacao SET estado = 'resolvido', resolvido_por = ?, resolvido_em = ?
+                     WHERE utilizador = ? AND estado = 'pendente'""", (utilizador, agora(), utilizador))
+    bd.auditar(utilizador, "senha_recuperada_com_codigo", None)
+
+
+def pedir_recuperacao(bd: BaseDados, utilizador: str) -> None:
+    """Regista um pedido para os supervisores. Responde sempre da mesma forma (não revela se a conta existe)."""
+    utilizador = (utilizador or "").strip().lower()
+    r = bd.consultar("SELECT activo FROM utilizadores WHERE utilizador = ?", (utilizador,))
+    if not r or not r[0]["activo"]:
+        bd.auditar(utilizador[:40] or "?", "recuperacao_pedida", {"motivo": "desconhecido" if not r else "inactivo"})
+        return
+    if bd.consultar("SELECT 1 FROM pedidos_recuperacao WHERE utilizador = ? AND estado = 'pendente'", (utilizador,)):
+        return  # já há um pedido à espera
+    with bd.ligacao() as c:
+        c.execute("INSERT INTO pedidos_recuperacao(utilizador, pedido_em) VALUES (?, ?)", (utilizador, agora()))
+    bd.auditar(utilizador, "recuperacao_pedida", None)
+
+
+def pedidos_pendentes(bd: BaseDados) -> list[dict]:
+    return [dict(r) for r in bd.consultar(
+        """SELECT p.id_pedido, p.utilizador, p.pedido_em, u.nome, u.papel FROM pedidos_recuperacao p
+           JOIN utilizadores u ON u.utilizador = p.utilizador WHERE p.estado = 'pendente' ORDER BY p.pedido_em""")]
+
+
+def repor_temporaria(bd: BaseDados, utilizador: str, quem: str) -> str:
+    """Gera uma palavra-passe temporária (mudança obrigatória ao entrar) e fecha os pedidos pendentes."""
+    if utilizador == quem:
+        raise ValueError("Para a sua própria conta use «A minha conta».")
+    senha = _aleatorio(12).lower()
+    mudar_senha(bd, utilizador, senha, quem, temporaria=True)
+    with bd.ligacao() as c:
+        c.execute("""UPDATE pedidos_recuperacao SET estado = 'resolvido', resolvido_por = ?, resolvido_em = ?
+                     WHERE utilizador = ? AND estado = 'pendente'""", (quem, agora(), utilizador))
+    return senha
+
+
+def recusar_pedido(bd: BaseDados, id_pedido: int, quem: str) -> None:
+    with bd.ligacao() as c:
+        c.execute("""UPDATE pedidos_recuperacao SET estado = 'recusado', resolvido_por = ?, resolvido_em = ?
+                     WHERE id_pedido = ? AND estado = 'pendente'""", (quem, agora(), id_pedido))
+    bd.auditar(quem, "recuperacao_recusada", {"pedido": id_pedido})
 
 
 def definir_activo(bd: BaseDados, utilizador: str, activo: bool, quem: str) -> None:
@@ -134,7 +248,8 @@ def obter_sessao(bd: BaseDados, token: str | None) -> dict | None:
     if not token:
         return None
     r = bd.consultar(
-        """SELECT s.csrf, s.expira_em, u.utilizador, u.nome, u.papel, u.activo
+        """SELECT s.csrf, s.expira_em, u.utilizador, u.nome, u.papel, u.activo, u.senha_temporaria,
+                  u.codigo_criado_em
            FROM sessoes s JOIN utilizadores u ON u.utilizador = s.utilizador WHERE s.token_hash = ?""",
         (_h(token),))
     if not r:

@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Os testes (99) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
+Os testes (110) usam um classificador de demonstração e um BERT minúsculo criado no momento; não descarregam nada.
 
 ## 2. Configuração: ficheiro `uan.env`
 
@@ -76,6 +76,14 @@ python uan.py servir --demonstracao
 Cria, na primeira vez, a base `dados\demonstracao.db` com cerca de 1 350 publicações **fictícias** em 16 semanas: conversas de três plataformas fictícias (vídeos, páginas e notícias) sobre transportes, água e luz, saúde, educação, economia, desporto e cultura, em 18 províncias, com registos formais e coloquiais, respostas entre utilizadores e casos de fronteira (convocatórias pacíficas e legais, críticas duras ao Governo). Episódios com princípio e fim (um boato de cólera em Benguela, uma paralisação com intimidação em Luanda, uma rivalidade na Huíla que acalma) dão forma ao mapa, às tendências e aos alertas. As sugestões vêm de um classificador **simulado**, que acerta e erra como um modelo real (erra mais na Desinformação), e há decisões de dois analistas. Quando o gerador muda de versão, a base de demonstração antiga é recriada sozinha. Todas as páginas mostram a faixa "Demonstração" e nenhum e-mail é enviado, mesmo com o servidor de e-mail configurado. Contas: `demo.supervisor`, `demo.analista` e `demo.revisor`, palavra-passe `demonstracao`. `--repor` apaga e recria os dados fictícios. A base real (`dados\sistema.db`) não é aberta.
 
 **Trocar de modo sem fechar a janela.** Com o sistema aberto, um supervisor pode passar da demonstração para o sistema real (e ao contrário) no botão da faixa "Demonstração", em *Definições e aspecto → Modo do sistema* ou na paleta (`Ctrl`+`K`, "mudar"). O servidor reinicia na mesma janela com a outra base de dados e o navegador abre a página de entrada quando estiver pronto. As duas bases nunca se misturam e cada uma tem as suas contas.
+
+**Esqueceu-se da palavra-passe?** Na página de entrada, *Esqueceu-se da palavra-passe?* abre três caminhos, todos sem e-mail nem serviços externos:
+
+1. **Código de recuperação pessoal.** Cada pessoa gera o seu em *A minha conta → Código de recuperação* (confirma com a palavra-passe actual). O código tem 16 caracteres, aparece uma só vez, fica guardado só como hash e serve uma vez. Com ele, a pessoa muda a palavra-passe sozinha. As tentativas erradas contam para o mesmo bloqueio da entrada (5 falhas, 5 minutos).
+2. **Pedido ao supervisor.** Quem não tem código envia um pedido. A resposta é sempre a mesma, exista ou não a conta. Os supervisores vêem os pedidos em *Utilizadores* (com contador no menu), confirmam a identidade da pessoa e geram uma **palavra-passe temporária**, mostrada uma só vez. Ao entrar com ela, a pessoa só pode ir a *A minha conta* até escolher uma palavra-passe sua. Uma palavra-passe que o supervisor escreva para outra conta também é temporária.
+3. **Linha de comandos** (por exemplo, para o único supervisor), no computador do servidor: `python uan.py repor-senha supervisor`, que pede a nova palavra-passe, ou `python uan.py repor-senha supervisor --temporaria`, que mostra uma temporária. Os dois comandos desbloqueiam e reactivam a conta. Na base de demonstração, acrescente `--demonstracao`.
+
+Todos os passos ficam na *Auditoria*.
 
 Por omissão o servidor só aceita ligações do próprio computador. Para outros computadores da rede local usarem o sistema: `python uan.py servir --anfitriao 0.0.0.0` (abra a porta 8000 na firewall do Windows só para a rede interna; para uso fora de um teste, coloque o serviço atrás de HTTPS e defina `UAN_COOKIE_SEGURO=1`).
 
@@ -173,6 +181,7 @@ python uan.py metricas
 python uan.py exportar dados\revisoes_para_treino.csv
 python uan.py limpar --dias 180
 python uan.py copia
+python uan.py repor-senha supervisor            (esqueceu a palavra-passe; --temporaria gera uma)
 ```
 
 Útil para tarefas agendadas no Agendador de Tarefas do Windows (por exemplo, `limpar` e `copia` uma vez por dia).
