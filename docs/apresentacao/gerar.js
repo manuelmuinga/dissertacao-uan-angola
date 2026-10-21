@@ -153,7 +153,7 @@ function novo(seccao, sec, notas, tempo) {
         { x: x + 1.15, y: y + 0.17, w: 3.75, h: 0.96, valign: 'middle', margin: 0, isTextBox: true });
       s.addText(m, { x: x + 4.85, y: y + 0.4, w: 0.9, h: 0.5, fontSize: 16, bold: true, color: n === '5' ? RED : BLUE, align: 'right', valign: 'middle', margin: 0, isTextBox: true });
     });
-    s.addText('Exposição: 15 minutos (artigo 17.º do Regulamento de Trabalhos de Fim de Curso da UAN). Os tempos à direita somam 14:45; os 15 segundos restantes cobrem a passagem para a demonstração.',
+    s.addText('Exposição: 15 minutos. Os tempos à direita somam 14:45; os 15 segundos restantes cobrem a passagem para a demonstração.',
       { x: MX, y: 6.6, w: W - 2 * MX, h: 0.35, fontSize: 11, color: GREY, margin: 0, isTextBox: true });
   }
 
