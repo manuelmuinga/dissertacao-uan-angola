@@ -1,7 +1,7 @@
 import sys, zipfile, re, shutil
 src = sys.argv[1]; tmp = src + '.tmp'
 # diapositivos que iniciam secção recebem "push"; os restantes "fade"
-inicio = {1, 3, 5, 6, 9, 13, 15, 17}
+inicio = {1, 3, 6, 7, 10, 15, 17, 20}
 zin = zipfile.ZipFile(src); zout = zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED)
 for it in zin.infolist():
     data = zin.read(it.filename)

@@ -1,4 +1,4 @@
-// Apresentação da defesa da dissertação (15 minutos), gerada com pptxgenjs.
+// Apresentação da defesa da dissertação (20 minutos), gerada com pptxgenjs.
 const fs = require('fs');
 const path = require('path');
 const pptxgen = require('pptxgenjs');
@@ -90,7 +90,7 @@ function novo(seccao, sec, notas, tempo) {
   tempos.push(tempo);
   const acum = tempos.reduce((a, b) => a + b, 0);
   const mmss = (t) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-  s.addNotes(`Tempo deste diapositivo: ${mmss(tempo)} (relógio no fim: ${mmss(acum)} de 15:00).\n\n${notas}`);
+  s.addNotes(`Tempo deste diapositivo: ${mmss(tempo)} (relógio no fim: ${mmss(acum)} de 20:00).\n\n${notas}`);
   return s;
 }
 
@@ -128,7 +128,7 @@ function novo(seccao, sec, notas, tempo) {
       { text: 'Co-orientador: ', options: { color: 'B8C4D1' } }, { text: 'Professor Doutor Judice Cumbunga', options: {} },
     ], { x: MX, y: 4.55, w: 8.5, h: 1.3, fontSize: 16, color: 'FFFFFF', margin: 0, paraSpaceAfter: 6, isTextBox: true });
     s.addText('Luanda, 2026', { x: MX, y: 6.55, w: 4, h: 0.4, fontSize: 16, color: 'FFFFFF', margin: 0, isTextBox: true });
-    s.addNotes('Tempo deste diapositivo: 0:30 (relógio no fim: 0:30 de 15:00).\n\nCumprimentar o Presidente do Júri, os membros do júri, os orientadores e o público. Apresentar o título e o enquadramento: dissertação de mestrado em Engenharia e Ciência de Dados. Anunciar que a exposição dura 15 minutos e inclui uma demonstração do sistema.');
+    s.addNotes('Tempo deste diapositivo: 0:30 (relógio no fim: 0:30 de 20:00).\n\nCumprimentar o Presidente do Júri, os membros do júri, os orientadores e o público. Apresentar o título e o enquadramento: dissertação de mestrado em Engenharia e Ciência de Dados. Anunciar que a exposição dura 20 minutos e inclui uma demonstração do sistema.');
   }
 
   // ============================================================ 2. Agenda
@@ -136,12 +136,12 @@ function novo(seccao, sec, notas, tempo) {
     const s = novo('Abertura', null, 'Apresentar a estrutura: seis partes. Indicar que a parte maior é a do sistema, com demonstração ao vivo, e que no topo de cada diapositivo se vê em que parte estamos.', 30);
     s.addText('Agenda', { placeholder: 'title' });
     const itens = [
-      ['1', 'Introdução', 'Contexto, problema, pergunta e hipóteses', '1:45'],
-      ['2', 'Revisão da literatura', 'O que se sabe e a lacuna para Angola', '1:00'],
-      ['3', 'Metodologia', 'Desenho, corpus angolano, corpus híbrido e modelos', '2:15'],
-      ['4', 'Resultados', 'Comparação de modelos, lacuna de domínio, fila e tempo', '3:15'],
-      ['5', 'Sistema', 'Arquitectura e demonstração ao vivo', '4:00'],
-      ['6', 'Conclusões', 'Hipóteses, conclusões e recomendações', '1:30'],
+      ['1', 'Introdução', 'Contexto, pergunta, hipóteses e objectivos', '2:45'],
+      ['2', 'Revisão da literatura', 'O que se sabe e a lacuna para Angola', '1:15'],
+      ['3', 'Metodologia', 'Desenho, corpus angolano, corpus híbrido e modelos', '2:45'],
+      ['4', 'Resultados', 'Modelos, lacuna de domínio, fila, tempo e limitações', '4:30'],
+      ['5', 'Sistema', 'Arquitectura e demonstração ao vivo', '5:00'],
+      ['6', 'Conclusões', 'Hipóteses, conclusões e recomendações', '2:45'],
     ];
     itens.forEach(([n, t, d, m], i) => {
       const col = i % 2, lin = Math.floor(i / 2);
@@ -153,14 +153,14 @@ function novo(seccao, sec, notas, tempo) {
         { x: x + 1.15, y: y + 0.17, w: 3.75, h: 0.96, valign: 'middle', margin: 0, isTextBox: true });
       s.addText(m, { x: x + 4.85, y: y + 0.4, w: 0.9, h: 0.5, fontSize: 16, bold: true, color: n === '5' ? RED : BLUE, align: 'right', valign: 'middle', margin: 0, isTextBox: true });
     });
-    s.addText('Exposição: 15 minutos. Os tempos à direita somam 14:45; os 15 segundos restantes cobrem a passagem para a demonstração.',
+    s.addText('Exposição: 20 minutos. A abertura (capa e agenda) ocupa 1:00 e as seis partes somam 19:00.',
       { x: MX, y: 6.6, w: W - 2 * MX, h: 0.35, fontSize: 11, color: GREY, margin: 0, isTextBox: true });
   }
 
   // ============================================================ 3. Contexto
   pres.addSection({ title: 'Introdução' });
   {
-    const s = novo('Introdução', 0, 'O fenómeno tem escala: 17,6 milhões de utilizadores da Internet e 5,5 milhões de identidades em redes sociais. Dois episódios mostram o peso político: a campanha «2022 Vais Gostar», que passou das redes para a rua, e os protestos de Agosto de 2025. O problema para as estruturas de segurança é o volume: não é possível ler tudo, e as ferramentas comerciais não foram pensadas para o português de Angola.', 50);
+    const s = novo('Introdução', 0, 'O fenómeno tem escala: 17,6 milhões de utilizadores da Internet e 5,5 milhões de identidades em redes sociais. Dois episódios mostram o peso político: a campanha «2022 Vais Gostar», que passou das redes para a rua, e os protestos de Agosto de 2025. O problema para as estruturas de segurança é o volume: não é possível ler tudo, e as ferramentas comerciais não foram pensadas para o português de Angola.', 60);
     s.addText('Milhões de angolanos nas redes, poucos analistas para as ler', { placeholder: 'title' });
     const stats = [['17,6 M', 'utilizadores da Internet', '44,8% da população'], ['5,50 M', 'identidades em redes sociais', '14,0% da população'], ['30,6 M', 'ligações móveis', 'o telemóvel é o acesso principal']];
     stats.forEach(([v, l, d], i) => {
@@ -182,7 +182,7 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 4. Problema e hipóteses
   {
-    const s = novo('Introdução', 0, 'A pergunta de partida e as quatro hipóteses, cada uma com critério quantitativo. H1 compara algoritmos; H2 mede tempo; H3 antecedência; H4 a queda em conteúdo angolano. Ler devagar a pergunta.', 55);
+    const s = novo('Introdução', 0, 'A pergunta de partida e as quatro hipóteses, cada uma com critério quantitativo. H1 compara algoritmos; H2 mede tempo; H3 antecedência; H4 a queda em conteúdo angolano. Ler devagar a pergunta.', 60);
     s.addText('Pergunta de partida e hipóteses', { placeholder: 'title' });
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: MX, y: 1.85, w: W - 2 * MX, h: 1.1, rectRadius: 0.08, fill: { color: NAVY }, line: { color: NAVY }, objectName: 'pergunta' });
     s.addText('Em que medida um sistema baseado em aprendizagem automática consegue apoiar, de forma fiável e juridicamente responsável, a triagem de publicações ameaçadoras em redes sociais angolanas?',
@@ -203,10 +203,34 @@ function novo(seccao, sec, notas, tempo) {
     });
   }
 
-  // ============================================================ 5. Revisão da literatura
+  // ============================================================ Objectivos
+  {
+    const s = novo('Introdução', 0, 'O objectivo geral e os cinco objectivos específicos. Ligar cada um à hipótese que o testa: OE2 com a H1, OE3 com a H4, OE4 com a H2 e a H3. O OE1 (corpus) e o OE5 (quadro ético e legal) não têm hipótese: são de construção e normativos.', 45);
+    s.addText('Objectivos: um sistema que se mede antes de se usar', { placeholder: 'title' });
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: MX, y: 1.85, w: W - 2 * MX, h: 1.2, rectRadius: 0.08, fill: { color: NAVY }, line: { color: NAVY }, objectName: 'objectivo-geral' });
+    s.addText([{ text: 'Objectivo geral  ', options: { bold: true, color: GOLD } }, { text: 'Desenvolver e avaliar um sistema de apoio à triagem de publicações ameaçadoras em redes sociais angolanas, que combine um classificador adaptado ao português com revisão humana obrigatória e protecção de dados desde a concepção.', options: { color: 'FFFFFF' } }],
+      { x: MX + 0.3, y: 1.85, w: W - 2 * MX - 0.6, h: 1.2, fontSize: 15, valign: 'middle', margin: 0, isTextBox: true });
+    const oes = [
+      ['OE1', 'Construir um corpus angolano anotado por três anotadores, com proveniência registada', '—'],
+      ['OE2', 'Comparar SVM, Floresta Aleatória, Bi-LSTM e BERTimbau com testes estatísticos', 'H1'],
+      ['OE3', 'Quantificar a perda de desempenho em conteúdo angolano e as suas causas', 'H4'],
+      ['OE4', 'Desenvolver o protótipo de triagem e o protocolo da sua avaliação', 'H2, H3'],
+      ['OE5', 'Propor um quadro de uso responsável conforme a Lei n.º 22/11', '—'],
+    ];
+    const gw = (W - 2 * MX - 4 * 0.15) / 5;
+    oes.forEach(([c, t, h], i) => {
+      const x = MX + i * (gw + 0.15);
+      cartao(s, x, 3.3, gw, 3.0, `objectivo-${c}`);
+      s.addText(c, { x: x + 0.2, y: 3.45, w: gw - 0.4, h: 0.5, fontSize: 22, bold: true, color: RED, margin: 0, isTextBox: true });
+      s.addText(t, { x: x + 0.2, y: 4.0, w: gw - 0.4, h: 1.6, fontSize: 15, color: C.text1, margin: 0, valign: 'top', isTextBox: true });
+      s.addText(h === '—' ? 'sem hipótese' : `testado por ${h}`, { x: x + 0.2, y: 5.75, w: gw - 0.4, h: 0.35, fontSize: 12, bold: h !== '—', color: h === '—' ? GREY : NAVY, margin: 0, isTextBox: true });
+    });
+  }
+
+  // ============================================================ Revisão da literatura
   pres.addSection({ title: 'Revisão da literatura' });
   {
-    const s = novo('Revisão da literatura', 1, 'Três conclusões da literatura. Os sistemas internacionais (MediFor, Palantir, EU DisinfoLab) não estão disponíveis ou criam dependência externa. Os recursos de PLN em português são brasileiros, e a desinformação vem de notícias completas. Os classificadores generalizam mal entre domínios e variedades, e manter um humano no circuito exige contramedidas contra o viés de automação.', 60);
+    const s = novo('Revisão da literatura', 1, 'Três conclusões da literatura. Os sistemas internacionais (MediFor, Palantir, EU DisinfoLab) não estão disponíveis ou criam dependência externa. Os recursos de PLN em português são brasileiros, e a desinformação vem de notícias completas. Os classificadores generalizam mal entre domínios e variedades, e manter um humano no circuito exige contramedidas contra o viés de automação.', 75);
     s.addText('A literatura deixa uma lacuna para Angola', { placeholder: 'title' });
     const cards = [
       [ic.globo, 'Sistemas existentes', 'Programas e plataformas internacionais sem português de Angola ou com dependência de fornecedores externos (Defense Advanced Research Projects Agency, 2016; Palantir Technologies, 2021).'],
@@ -228,7 +252,7 @@ function novo(seccao, sec, notas, tempo) {
   // ============================================================ 6. Desenho
   pres.addSection({ title: 'Metodologia' });
   {
-    const s = novo('Metodologia', 2, 'Paradigma pragmático e aplicado, abordagem quantitativa. Três fases: dados, modelos e sistema. As revisões feitas no sistema podem voltar a alimentar o treino.', 40);
+    const s = novo('Metodologia', 2, 'Paradigma pragmático e aplicado, abordagem quantitativa. Três fases: dados, modelos e sistema. As revisões feitas no sistema podem voltar a alimentar o treino.', 45);
     s.addText('Investigação em três fases: dados, modelos e sistema', { placeholder: 'title' });
     s.addImage({ path: 'fig3_1_desenho.png', x: 1.6, y: 1.8, w: 7.55, h: 4.51, objectName: 'figura-desenho' });
     legenda(s, 'Figura 1 – Desenho da investigação', 1.6, 6.35, 7.55);
@@ -246,7 +270,7 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 7. Corpus angolano
   {
-    const s = novo('Metodologia', 2, 'O corpus angolano: 2 637 publicações públicas, sobretudo comentários do YouTube pela interface oficial, anotadas por três anotadores com κ de Fleiss de 0,718, acordo substancial. Nos desacordos, prevalece a categoria mais grave. Notar que a Mobilização Hostil só existe no piloto.', 50);
+    const s = novo('Metodologia', 2, 'O corpus angolano: 2 637 publicações públicas, sobretudo comentários do YouTube pela interface oficial, anotadas por três anotadores com κ de Fleiss de 0,718, acordo substancial. Nos desacordos, prevalece a categoria mais grave. Notar que a Mobilização Hostil só existe no piloto.', 60);
     s.addText('Corpus angolano: 2 637 publicações e três anotadores', { placeholder: 'title' });
     s.addChart(pres.charts.DOUGHNUT, [{ name: 'Publicações', labels: ['Normal', 'Mobilização Hostil', 'Desinformação', 'Discurso de Ódio'], values: [1664, 364, 326, 283] }], {
       x: MX, y: 1.75, w: 5.6, h: 4.45, holeSize: 55, chartColors: ['8FA3B8', RED, GOLD, BLUE],
@@ -270,7 +294,7 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 8. Corpus híbrido e modelos
   {
-    const s = novo('Metodologia', 2, 'O piloto, por si só, é pequeno. Juntou-se a três corpora públicos brasileiros, num total de 26 859 registos. Quatro modelos de três gerações. Protocolo definido antes de ver o teste: F1-macro com IC por bootstrap e McNemar com Bonferroni. Atenção: 91% do teste é brasileiro, por isso a H4 separa os dois domínios.', 45);
+    const s = novo('Metodologia', 2, 'O piloto, por si só, é pequeno. Juntou-se a três corpora públicos brasileiros, num total de 26 859 registos. Quatro modelos de três gerações. Protocolo definido antes de ver o teste: F1-macro com IC por bootstrap e McNemar com Bonferroni. Atenção: 91% do teste é brasileiro, por isso a H4 separa os dois domínios.', 60);
     s.addText('Corpus híbrido de 26 859 registos e quatro modelos comparados', { placeholder: 'title' });
     s.addText('Tabela 1 – Composição do corpus híbrido por fonte', { x: MX, y: 1.8, w: 6, h: 0.3, fontSize: 11, bold: true, color: C.text1, align: 'center', margin: 0, isTextBox: true });
     const cab = { bold: true, color: 'FFFFFF', fill: { color: NAVY }, fontSize: 13, align: 'center' };
@@ -297,7 +321,7 @@ function novo(seccao, sec, notas, tempo) {
   // ============================================================ 9. Comparação de modelos
   pres.addSection({ title: 'Resultados' });
   {
-    const s = novo('Resultados', 3, 'O BERTimbau obteve F1-macro de 0,807, com intervalo que não se sobrepõe aos outros; a diferença é de 14,6 a 17,4 p.p., com p < 10^-47. O Bi-LSTM não se distingue da Floresta Aleatória: por isso a H1 fica parcialmente confirmada. A explicação provável é o pré-treino.', 55);
+    const s = novo('Resultados', 3, 'O BERTimbau obteve F1-macro de 0,807, com intervalo que não se sobrepõe aos outros; a diferença é de 14,6 a 17,4 p.p., com p < 10^-47. O Bi-LSTM não se distingue da Floresta Aleatória: por isso a H1 fica parcialmente confirmada. A explicação provável é o pré-treino.', 60);
     s.addText('O BERTimbau supera os restantes modelos em 15 a 17 pontos', { placeholder: 'title' });
     s.addChart(pres.charts.BAR, [{ name: 'F1-macro', labels: ['SVM', 'Floresta Aleatória', 'Bi-LSTM', 'BERTimbau'], values: [0.633, 0.659, 0.660, 0.807] }], {
       x: MX, y: 1.75, w: 7.4, h: 4.5, barDir: 'col', chartColors: ['8FA3B8', '8FA3B8', BLUE, NAVY], valAxisMinVal: 0, valAxisMaxVal: 1,
@@ -318,7 +342,7 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 10. H4
   {
-    const s = novo('Resultados', 3, 'Este é o resultado central. No corpus público o F1-macro é 0,919; no piloto angolano cai para 0,533: 38,6 pontos. A maior queda é na Desinformação, de 0,99 para 0,24: o modelo aprendeu o estilo das notícias do Fake.br, não o fenómeno. A estimativa realista para Angola é 0,53, e é essa que o sistema mostra ao analista.', 55);
+    const s = novo('Resultados', 3, 'Este é o resultado central. No corpus público o F1-macro é 0,919; no piloto angolano cai para 0,533: 38,6 pontos. A maior queda é na Desinformação, de 0,99 para 0,24: o modelo aprendeu o estilo das notícias do Fake.br, não o fenómeno. A estimativa realista para Angola é 0,53, e é essa que o sistema mostra ao analista.', 60);
     s.addText('Em conteúdo angolano o F1-macro cai 38,6 pontos (H4)', { placeholder: 'title' });
     s.addChart(pres.charts.BAR, [
       { name: 'Corpus público (n = 3 632)', labels: ['Normal', 'Desinformação', 'Discurso de Ódio', 'Mobilização Hostil'], values: [0.963, 0.992, 0.802, 0] },
@@ -347,7 +371,7 @@ function novo(seccao, sec, notas, tempo) {
     const O = JSON.parse(fs.readFileSync('ordenacao.json', 'utf8'));
     const pts = (k) => O[k].curva.filter((_, i) => i % 10 === 0).map((v) => Math.round(v * 1000) / 10);
     const labels = ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'];
-    const s = novo('Resultados', 3, 'Como o sistema usa as probabilidades para ordenar a fila, medi também o esforço de revisão. Com o BERTimbau, rever um quarto da fila encontra 80% das ameaças. Mas a ordem reflecte a confiança e não a gravidade: a Mobilização Hostil fica a meio da fila. E 11,8% das ameaças ficam entre os itens que o modelo considera Normais: é isso que justifica a amostra de controlo.', 40);
+    const s = novo('Resultados', 3, 'Como o sistema usa as probabilidades para ordenar a fila, medi também o esforço de revisão. Com o BERTimbau, rever um quarto da fila encontra 80% das ameaças. Mas a ordem reflecte a confiança e não a gravidade: a Mobilização Hostil fica a meio da fila. E 11,8% das ameaças ficam entre os itens que o modelo considera Normais: é isso que justifica a amostra de controlo.', 50);
     s.addText('A fila encontra 80% das ameaças em 25% da leitura', { placeholder: 'title' });
     s.addChart(pres.charts.LINE, [
       { name: 'BERTimbau', labels, values: pts('BERTimbau') },
@@ -392,10 +416,33 @@ function novo(seccao, sec, notas, tempo) {
     s.addText([{ text: 'H3: não testada', options: { bold: true, color: GREY } }, { text: ' (sem corpus datado em torno de eventos)', options: { color: C.text1 } }], { x: 7.03, y: 5.5, w: 5.6, h: 0.85, fontSize: 14, valign: 'middle', margin: 0, isTextBox: true });
   }
 
+  // ============================================================ Limitações
+  {
+    const s = novo('Resultados', 3, 'Antes do sistema, digo o que os resultados não permitem afirmar. O piloto é pequeno, sobretudo na Mobilização Hostil (47 exemplos de teste). 91% do teste é brasileiro. A desinformação disponível são notícias. Não separei língua, plataforma e registo. A utilidade para analistas e a antecipação não foram medidas. E o protótipo não teve auditoria de segurança independente.', 55);
+    s.addText('O que estes resultados não permitem afirmar', { placeholder: 'title' });
+    const lims = [
+      [ic.bd, 'Piloto pequeno', '355 itens de teste; a Mobilização Hostil tem 47, com IC do F1 de 0,42 a 0,66'],
+      [ic.globo, 'Teste dominado pelo Brasil', '91% do teste é brasileiro; para Angola, a estimativa é 0,53'],
+      [ic.livro, 'Desinformação em notícias', 'A única fonte pública são notícias completas, não comentários'],
+      [ic.lupa, 'Causas não separadas', 'Língua, plataforma e registo variam ao mesmo tempo no piloto'],
+      [ic.utilizador, 'Uso real por medir', 'Utilidade da fila com analistas e antecipação (H3) por avaliar'],
+      [ic.escudo, 'Segurança sem auditoria', 'Boas práticas seguidas, mas sem testes de intrusão independentes'],
+    ];
+    lims.forEach(([img, t, d], i) => {
+      const col = i % 3, lin = Math.floor(i / 3);
+      const cw = (W - 2 * MX - 2 * 0.2) / 3, x = MX + col * (cw + 0.2), y = 1.9 + lin * 2.25;
+      cartao(s, x, y, cw, 2.05, `limitacao-${i + 1}`);
+      circulo(s, x + 0.25, y + 0.25, 0.65, img, i === 4 ? RED : NAVY);
+      s.addText(t, { x: x + 1.05, y: y + 0.25, w: cw - 1.25, h: 0.65, fontSize: 16, bold: true, color: NAVY, valign: 'middle', margin: 0, isTextBox: true });
+      s.addText(d, { x: x + 0.25, y: y + 1.05, w: cw - 0.5, h: 0.85, fontSize: 13, color: C.text1, valign: 'top', margin: 0, isTextBox: true });
+    });
+    s.addText('Fonte: Secção 5.4 da dissertação.', { x: MX, y: 6.45, w: 6, h: 0.3, fontSize: 10, italic: true, color: GREY, margin: 0, isTextBox: true });
+  }
+
   // ============================================================ 13. Arquitectura
   pres.addSection({ title: 'Sistema' });
   {
-    const s = novo('Sistema', 4, 'Os resultados ditaram o desenho: o modelo não decide, ordena. Arquitectura leve, num único servidor, software livre e sem dependência da Internet. Salvaguardas: anonimização à entrada, sem perfis, revisão humana obrigatória, auditoria. Passo agora para a demonstração.', 45);
+    const s = novo('Sistema', 4, 'Os resultados ditaram o desenho: o modelo não decide, ordena. Arquitectura leve, num único servidor, software livre e sem dependência da Internet. Salvaguardas: anonimização à entrada, sem perfis, revisão humana obrigatória, auditoria. Passo agora para a demonstração.', 60);
     s.addText('Arquitectura leve, num único servidor, com o analista no centro', { placeholder: 'title' });
     s.addImage({ path: 'fig3_3_arquitectura.png', x: MX, y: 1.75, w: 5.67, h: 4.46, objectName: 'figura-arquitectura' });
     legenda(s, 'Figura 6 – Arquitectura em camadas do sistema', MX, 6.3, 5.67);
@@ -417,14 +464,14 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 14. Demonstração
   {
-    const s = novo('Sistema', 4, 'ANTES DA SESSÃO: arrancar o servidor com «python uan.py servir --demonstracao», entrar como demo.analista num separador e como demo.supervisor noutro. Ao chegar a este diapositivo, mudar para o navegador (Alt+Tab).\n\nRoteiro com tempos:\n1) Panorama (0:20): o que foi recolhido e sinalizado.\n2) Fila (0:50): ler uma publicação, decidir com a tecla, desfazer com U; mostrar as probabilidades e o realce do lugar; referir a revisão cega.\n3) Alertas e mapa (0:50): sino, mapa com cartão de uma província, reprodução semana a semana.\n4) Sobre o modelo (0:25): o desempenho em Angola, 0,53, está à vista do analista.\n5) Fontes e contas (0:30): recolha automática com a estimativa da quota; ligação «Esqueceu-se da palavra-passe?».\n\nSe a demonstração falhar, usar os diapositivos de reserva A, B e C, no fim.', 195);
+    const s = novo('Sistema', 4, 'ANTES DA SESSÃO: arrancar o servidor com «python uan.py servir --demonstracao», entrar como demo.analista num separador e como demo.supervisor noutro. Ao chegar a este diapositivo, mudar para o navegador (Alt+Tab).\n\nRoteiro com tempos:\n1) Panorama (0:25): o que foi recolhido e sinalizado.\n2) Fila e amostra de controlo (1:00): ler uma publicação, decidir com a tecla, desfazer com U; mostrar as probabilidades e o realce do lugar; referir a revisão cega; abrir a amostra de controlo.\n3) Alertas e mapa (1:00): sino, mapa com cartão de uma província, reprodução semana a semana.\n4) Sobre o modelo (0:30): o desempenho em Angola, 0,53, está à vista do analista.\n5) Fontes e contas (0:40): recolha automática com a estimativa da quota; ligação «Esqueceu-se da palavra-passe?» e pedido ao supervisor.\nPassagens para o navegador e de regresso: 0:25.\n\nSe a demonstração falhar, usar os diapositivos de reserva A, B e C, no fim.', 240);
     s.addText('Demonstração do sistema', { placeholder: 'title' });
     const passos = [
-      ['1', 'Panorama', 'O que foi recolhido e o que o modelo sinalizou', '0:20'],
-      ['2', 'Fila de revisão', 'Decidir com as teclas 1 a 4, desfazer, revisão cega', '0:50'],
-      ['3', 'Alertas e mapa', 'Sino em tempo real, mapa por província, evolução semanal', '0:50'],
-      ['4', 'Sobre o modelo', 'O desempenho em Angola visível para o analista', '0:25'],
-      ['5', 'Fontes e contas', 'Recolha automática, quota do YouTube, recuperação do acesso', '0:30'],
+      ['1', 'Panorama', 'O que foi recolhido e o que o modelo sinalizou', '0:25'],
+      ['2', 'Fila e amostra de controlo', 'Decidir com as teclas 1 a 4, desfazer, revisão cega', '1:00'],
+      ['3', 'Alertas e mapa', 'Sino em tempo real, mapa por província, evolução semanal', '1:00'],
+      ['4', 'Sobre o modelo', 'O desempenho em Angola visível para o analista', '0:30'],
+      ['5', 'Fontes e contas', 'Recolha automática, quota do YouTube, recuperação do acesso', '0:40'],
     ];
     passos.forEach(([n, t, d, m], i) => {
       const y = 1.8 + i * 0.86;
@@ -439,13 +486,13 @@ function novo(seccao, sec, notas, tempo) {
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 7.15, y: 5.65, w: 5.58, h: 0.75, rectRadius: 0.08, fill: { color: NAVY }, line: { color: NAVY }, objectName: 'comando' });
     s.addText([{ text: 'python uan.py servir --demonstracao', options: { fontFace: 'Courier New', bold: true, color: GOLD, breakLine: true } }, { text: 'No navegador: http://127.0.0.1:8000', options: { color: 'FFFFFF', fontSize: 12 } }],
       { x: 7.35, y: 5.65, w: 5.3, h: 0.75, fontSize: 13, valign: 'middle', margin: 0, isTextBox: true });
-    s.addText('Duração total: 3:15, incluindo a passagem para o navegador e o regresso.', { x: MX, y: 6.15, w: 6.2, h: 0.3, fontSize: 11, italic: true, color: GREY, margin: 0, isTextBox: true });
+    s.addText('Duração total: 4:00, incluindo 0:25 de passagem para o navegador e regresso.', { x: MX, y: 6.15, w: 6.2, h: 0.3, fontSize: 11, italic: true, color: GREY, margin: 0, isTextBox: true });
   }
 
   // ============================================================ 15. Hipóteses
   pres.addSection({ title: 'Conclusões' });
   {
-    const s = novo('Conclusões', 5, 'Síntese das hipóteses. H1 parcialmente confirmada; H2 confirmada com condições; H3 não testada; H4 confirmada com reservas. Dizer com clareza o que não foi demonstrado: a utilidade da fila com analistas reais e a antecipação.', 50);
+    const s = novo('Conclusões', 5, 'Síntese das hipóteses. H1 parcialmente confirmada; H2 confirmada com condições; H3 não testada; H4 confirmada com reservas. Dizer com clareza o que não foi demonstrado: a utilidade da fila com analistas reais e a antecipação.', 55);
     s.addText('Verificação das hipóteses', { placeholder: 'title' });
     s.addText('Tabela 2 – Verificação formal das hipóteses de investigação', { x: MX, y: 1.75, w: W - 2 * MX, h: 0.3, fontSize: 11, bold: true, color: C.text1, align: 'center', margin: 0, isTextBox: true });
     const cab = { bold: true, color: 'FFFFFF', fill: { color: NAVY }, fontSize: 14 };
@@ -460,29 +507,60 @@ function novo(seccao, sec, notas, tempo) {
     s.addText('Fonte: Capítulo 4 da dissertação.', { x: MX, y: 6.15, w: 6, h: 0.3, fontSize: 10, italic: true, color: GREY, margin: 0, isTextBox: true });
   }
 
-  // ============================================================ 16. Conclusões e recomendações
+  // ============================================================ Conclusões e contributos
   {
-    const s = novo('Conclusões', 5, 'Três conclusões e as recomendações principais. Fechar com a mensagem: o investimento que mais rende é em dados angolanos anotados e em avaliação no domínio real; o modelo é uma sugestão, não um veredicto.', 40);
+    const s = novo('Conclusões', 5, 'Três conclusões e os quatro contributos. Mensagem central: o modelo ordena o trabalho, o analista decide; em Angola o desempenho realista é 0,53.', 45);
     s.addText('O modelo ordena o trabalho; o analista decide', { placeholder: 'title' });
     const conc = [
       'Só o BERTimbau serve como classificador principal, com vantagem estatisticamente sólida',
       'O desempenho não se transfere intacto para Angola: a estimativa realista é 0,53',
       'Um sistema de triagem com revisão humana, auditável e de baixo custo é viável com software livre',
     ];
-    const rec = [
-      'Avaliar a fila com analistas reais (revisão cega e amostra de controlo)',
-      'Obter parecer jurídico antes de qualquer uso institucional',
-      'Ampliar o corpus angolano e medir sempre em Angola',
-      'Adaptar o modelo ao domínio e ordenar a fila por gravidade',
+    const contr = [
+      'Primeiro corpus angolano anotado nestas quatro categorias',
+      'Medida da lacuna de domínio, com intervalos de confiança',
+      'Avaliação que inclui calibração e esforço de revisão',
+      'Protótipo de código aberto com protecção de dados desde a concepção',
     ];
     cartao(s, MX, 1.85, 5.95, 4.45, 'conclusoes');
     s.addText('Conclusões', { x: MX + 0.3, y: 2.0, w: 5.4, h: 0.5, fontSize: 18, bold: true, color: NAVY, margin: 0, isTextBox: true });
     s.addText(conc.map((t, i) => ({ text: t, options: { bullet: { type: 'number' }, breakLine: i < conc.length - 1 } })),
       { x: MX + 0.3, y: 2.55, w: 5.4, h: 3.55, fontSize: 17, color: C.text1, margin: 0, valign: 'top', paraSpaceAfter: 10, isTextBox: true });
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 6.78, y: 1.85, w: 5.95, h: 4.45, rectRadius: 0.08, fill: { color: NAVY }, line: { color: NAVY }, objectName: 'recomendacoes' });
-    s.addText('Recomendações', { x: 7.08, y: 2.0, w: 5.4, h: 0.5, fontSize: 18, bold: true, color: GOLD, margin: 0, isTextBox: true });
-    s.addText(rec.map((t, i) => ({ text: t, options: { bullet: { type: 'number' }, breakLine: i < rec.length - 1 } })),
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 6.78, y: 1.85, w: 5.95, h: 4.45, rectRadius: 0.08, fill: { color: NAVY }, line: { color: NAVY }, objectName: 'contributos' });
+    s.addText('Contributos', { x: 7.08, y: 2.0, w: 5.4, h: 0.5, fontSize: 18, bold: true, color: GOLD, margin: 0, isTextBox: true });
+    s.addText(contr.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < contr.length - 1 } })),
       { x: 7.08, y: 2.55, w: 5.4, h: 3.55, fontSize: 17, color: 'FFFFFF', margin: 0, valign: 'top', paraSpaceAfter: 10, isTextBox: true });
+  }
+
+  // ============================================================ Recomendações
+  {
+    const s = novo('Conclusões', 5, 'As recomendações, separadas das conclusões como pedem as Normas da UAN. As três primeiras são condições para qualquer uso institucional; as outras três são trabalho futuro. Fechar com: o investimento que mais rende são dados angolanos anotados.', 50);
+    s.addText('Recomendações: validar primeiro, usar depois', { placeholder: 'title' });
+    const grupos = [
+      ['Condições para uso institucional', RED, [
+        ['1', 'Avaliar a fila com analistas reais', 'Precisão no topo da fila, κ analista–sistema e amostra de controlo'],
+        ['2', 'Obter parecer jurídico', 'Lei n.º 22/11, termos das plataformas e limites constitucionais'],
+        ['3', 'Ampliar o corpus angolano', 'Medir sempre em Angola; mais Mobilização Hostil e Desinformação'],
+      ]],
+      ['Trabalho futuro', NAVY, [
+        ['4', 'Substituir a fonte de desinformação', 'Publicações curtas, de preferência angolanas'],
+        ['5', 'Adaptar o modelo ao domínio', 'Pré-treino com comentários angolanos; comparar com Albertina PT-PT'],
+        ['6', 'Ordenar a fila por gravidade', 'Calibrar as probabilidades e aprender com a amostra de controlo'],
+      ]],
+    ];
+    grupos.forEach(([g, cor, itens], gi) => {
+      const x = MX + gi * 6.18;
+      s.addText(g, { x, y: 1.8, w: 5.95, h: 0.4, fontSize: 15, bold: true, color: cor, margin: 0, isTextBox: true });
+      itens.forEach(([n, t, d], i) => {
+        const y = 2.3 + i * 1.3;
+        cartao(s, x, y, 5.95, 1.15, `recomendacao-${n}`);
+        s.addShape(pres.shapes.OVAL, { x: x + 0.2, y: y + 0.25, w: 0.65, h: 0.65, fill: { color: cor }, line: { color: cor } });
+        s.addText(n, { x: x + 0.2, y: y + 0.25, w: 0.65, h: 0.65, fontSize: 18, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', margin: 0, isTextBox: true });
+        s.addText([{ text: t, options: { bold: true, color: NAVY, fontSize: 15, breakLine: true } }, { text: d, options: { fontSize: 12.5, color: C.text1 } }],
+          { x: x + 1.05, y: y + 0.1, w: 4.75, h: 0.95, margin: 0, valign: 'middle', isTextBox: true });
+      });
+    });
+    s.addText('Fonte: Secção 5.7 da dissertação (nove recomendações; aqui as seis principais).', { x: MX, y: 6.3, w: 9, h: 0.3, fontSize: 10, italic: true, color: GREY, margin: 0, isTextBox: true });
   }
 
   // ============================================================ 17. Encerramento
@@ -493,7 +571,7 @@ function novo(seccao, sec, notas, tempo) {
     s.addText('Estou disponível para as perguntas e comentários do Júri', { x: MX, y: 3.35, w: W - 2 * MX, h: 0.6, fontSize: 20, color: GOLD, margin: 0, isTextBox: true });
     s.addText('Manuel Gonga Muinga · Mestrado em Engenharia e Ciência de Dados · Universidade Agostinho Neto, Faculdade de Engenharia · Luanda, 2026',
       { x: MX, y: 6.45, w: W - 2 * MX, h: 0.4, fontSize: 12, color: 'B8C4D1', margin: 0, isTextBox: true });
-    s.addNotes('Tempo deste diapositivo: 0:15 (relógio no fim: 15:00 de 15:00).\n\nAgradecer e passar a palavra ao Presidente do Júri. Os diapositivos seguintes são de reserva, para a demonstração ou para as perguntas.');
+    s.addNotes('Tempo deste diapositivo: 0:15 (relógio no fim: 20:00 de 20:00).\n\nAgradecer e passar a palavra ao Presidente do Júri. Os diapositivos seguintes são de reserva, para a demonstração ou para as perguntas.');
   }
 
   // ============================================================ Reserva
