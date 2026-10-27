@@ -31,7 +31,7 @@
   },
   "limitacoes": [
     "Em conteúdo angolano o desempenho cai cerca de 39 pontos percentuais face ao corpus público (F1-macro 0,53 contra 0,92).",
-    "A Desinformação é quase sempre falhada em comentários angolanos (F1 0,24): no treino vinha de notícias completas do Fake.br e o modelo aprendeu o estilo, não o conteúdo.",
+    "A Desinformação é quase sempre falhada em comentários angolanos (F1 0,24): no treino vinha de notícias completas do Fake.br, e o modelo pode ter aprendido o estilo jornalístico em vez do conteúdo (os dados não separam esta explicação da diferença entre as etiquetas).",
     "A Mobilização Hostil só existe no piloto angolano e tem poucos exemplos (47 no teste): quase metade dos casos que o modelo sinaliza não o são.",
     "Classifica só texto em português; não lê imagens, vídeo, áudio nem línguas nacionais.",
     "A classificação ordena a revisão humana. Não fundamenta, por si, qualquer acção sobre pessoas."
