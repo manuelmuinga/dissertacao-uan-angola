@@ -160,7 +160,7 @@ function novo(seccao, sec, notas, tempo) {
   // ============================================================ 3. Contexto
   pres.addSection({ title: 'Introdução' });
   {
-    const s = novo('Introdução', 0, 'O fenómeno tem escala: 17,6 milhões de utilizadores da Internet e 5,5 milhões de identidades em redes sociais. Dois episódios mostram o peso político: a campanha «2022 Vais Gostar», que passou das redes para a rua, e os protestos de Agosto de 2025. O problema para as estruturas de segurança é o volume: não é possível ler tudo, e as ferramentas comerciais não foram pensadas para o português de Angola.', 60);
+    const s = novo('Introdução', 0, 'O fenómeno tem escala: 17,6 milhões de utilizadores da Internet e 5,5 milhões de identidades em redes sociais. A campanha «2022 Vais Gostar» mostra o peso político: passou das redes para a rua, com manifestações em várias províncias. E a desinformação ganhou ferramentas novas, como deepfakes, bots e campanhas coordenadas. O problema para as estruturas de segurança é o volume: não é possível ler tudo, e as ferramentas comerciais não foram pensadas para o português de Angola.', 60);
     s.addText('Milhões de angolanos nas redes, poucos analistas para as ler', { placeholder: 'title' });
     const stats = [['17,6 M', 'utilizadores da Internet', '44,8% da população'], ['5,50 M', 'identidades em redes sociais', '14,0% da população'], ['30,6 M', 'ligações móveis', 'o telemóvel é o acesso principal']];
     stats.forEach(([v, l, d], i) => {
@@ -172,8 +172,8 @@ function novo(seccao, sec, notas, tempo) {
     s.addText('Fonte: Kemp (2025), dados de Outubro de 2025.', { x: MX, y: 4.65, w: 7.5, h: 0.3, fontSize: 10, italic: true, color: GREY, margin: 0, isTextBox: true });
     s.addText([
       { text: 'Da rede para a rua', options: { bold: true, fontSize: 18, color: NAVY, breakLine: true } },
-      { text: 'A campanha «2022 Vais Gostar» começou nas redes e terminou em manifestações em várias províncias (Hassane, 2021).', options: { bullet: true, breakLine: true } },
-      { text: 'Nos protestos de Agosto de 2025 circularam conteúdos sintéticos para influenciar a narrativa (Cintra, 2025).', options: { bullet: true, breakLine: true } },
+      { text: 'A campanha «2022 Vais Gostar» começou nas redes e terminou em manifestações em várias províncias (Hassane, 2021, pp. 37–38).', options: { bullet: true, breakLine: true } },
+      { text: 'A desinformação ganhou ferramentas novas: deepfakes, bots e campanhas coordenadas (Cintra, 2025, p. 101).', options: { bullet: true, breakLine: true } },
       { text: 'O limite é humano: há mais publicações do que analistas, e as ferramentas comerciais não foram feitas para o português de Angola.', options: { bullet: true } },
     ], { x: 8.45, y: 1.95, w: 4.3, h: 3.6, fontSize: 14, color: C.text1, margin: 0, valign: 'top', paraSpaceAfter: 8, isTextBox: true });
     circulo(s, MX, 5.35, 0.75, ic.lupa);
@@ -233,7 +233,7 @@ function novo(seccao, sec, notas, tempo) {
     const s = novo('Revisão da literatura', 1, 'Três conclusões da literatura. Os sistemas internacionais (MediFor, Palantir, EU DisinfoLab) não estão disponíveis ou criam dependência externa. Os recursos de PLN em português são brasileiros, e a desinformação vem de notícias completas. Os classificadores generalizam mal entre domínios e variedades, e manter um humano no circuito exige contramedidas contra o viés de automação.', 75);
     s.addText('A literatura deixa uma lacuna para Angola', { placeholder: 'title' });
     const cards = [
-      [ic.globo, 'Sistemas existentes', 'Programas e plataformas internacionais sem português de Angola ou com dependência de fornecedores externos (Defense Advanced Research Projects Agency, 2016; Palantir Technologies, 2021).'],
+      [ic.globo, 'Sistemas existentes', 'Programas e plataformas internacionais sem português de Angola ou com dependência de fornecedores externos (Defense Advanced Research Projects Agency, 2016; Palantir Technologies, 2024).'],
       [ic.livro, 'Recursos brasileiros', 'BERTimbau, ToLD-BR, HateBR e Fake.br são brasileiros; a desinformação disponível são notícias completas (Souza et al., 2020; Monteiro et al., 2018).'],
       [ic.rede, 'Generalização fraca', 'Os classificadores de conteúdo nocivo perdem desempenho fora do domínio de treino e aprendem atalhos (Fortuna et al., 2021; Geirhos et al., 2020).'],
       [ic.utilizador, 'O humano no circuito', 'Rever não basta: complacência e viés de automação exigem revisão cega e amostras de controlo (Parasuraman & Manzey, 2010).'],
@@ -264,7 +264,7 @@ function novo(seccao, sec, notas, tempo) {
       { text: 'H1 e H4 com métricas e testes estatísticos; H2 e H3 com o sistema em funcionamento', options: { breakLine: true } },
       { text: ' ', options: { breakLine: true, fontSize: 8 } },
       { text: 'Ética', options: { bold: true, color: NAVY, breakLine: true } },
-      { text: 'Só conteúdo público, anonimização à entrada, Lei n.º 22/11', options: {} },
+      { text: 'Só conteúdo público, pseudonimização à entrada, Lei n.º 22/11', options: {} },
     ], { x: 9.55, y: 1.95, w: 3.2, h: 4.2, fontSize: 14, color: C.text1, margin: 0, valign: 'top', isTextBox: true });
   }
 
@@ -280,13 +280,13 @@ function novo(seccao, sec, notas, tempo) {
     });
     legenda(s, 'Figura 2 – Distribuição das etiquetas finais do corpus angolano', MX, 6.25, 5.6);
     cartao(s, 6.65, 1.9, 2.6, 2.1, 'kappa');
-    s.addText([{ text: '0,718', options: { fontSize: 40, bold: true, color: NAVY, breakLine: true } }, { text: 'κ de Fleiss: acordo substancial', options: { fontSize: 13, color: C.text1 } }],
+    s.addText([{ text: '0,718', options: { fontSize: 40, bold: true, color: NAVY, breakLine: true } }, { text: 'κ de Fleiss (n = 2 443): acordo substancial', options: { fontSize: 13, color: C.text1 } }],
       { x: 6.85, y: 2.0, w: 2.25, h: 1.9, margin: 0, valign: 'middle', isTextBox: true });
     cartao(s, 9.45, 1.9, 3.28, 2.1, 'origem');
     s.addText([{ text: '86%', options: { fontSize: 40, bold: true, color: NAVY, breakLine: true } }, { text: 'comentários do YouTube pela interface oficial', options: { fontSize: 13, color: C.text1 } }],
       { x: 9.65, y: 2.0, w: 2.95, h: 1.9, margin: 0, valign: 'middle', isTextBox: true });
     s.addText([
-      { text: 'Autores anonimizados antes de gravar (pseudónimo HMAC)', options: { bullet: true, breakLine: true } },
+      { text: 'Autores pseudonimizados antes de gravar (HMAC)', options: { bullet: true, breakLine: true } },
       { text: 'Desacordo: prevalece a categoria mais grave; 11,3% das ameaças vêm de um só voto', options: { bullet: true, breakLine: true } },
       { text: 'Lotes enriquecidos por tema e por léxico usados só no treino', options: { bullet: true } },
     ], { x: 6.65, y: 4.25, w: 6.1, h: 1.9, fontSize: 14, color: C.text1, margin: 0, paraSpaceAfter: 6, valign: 'top', isTextBox: true });
@@ -321,7 +321,7 @@ function novo(seccao, sec, notas, tempo) {
   // ============================================================ 9. Comparação de modelos
   pres.addSection({ title: 'Resultados' });
   {
-    const s = novo('Resultados', 3, 'O BERTimbau obteve F1-macro de 0,807, com intervalo que não se sobrepõe aos outros; a diferença é de 14,6 a 17,4 p.p., com p < 10^-47. O Bi-LSTM não se distingue da Floresta Aleatória: por isso a H1 fica parcialmente confirmada. A explicação provável é o pré-treino.', 60);
+    const s = novo('Resultados', 3, 'O BERTimbau obteve F1-macro de 0,807, com intervalo que não se sobrepõe aos outros; a diferença é de 14,6 a 17,4 p.p., com p < 10^-47. O Bi-LSTM não se distingue da Floresta Aleatória e, repetido com três sementes, nunca a supera: por isso a H1 fica parcialmente confirmada. Uma explicação plausível, que o desenho não isola, é o pré-treino. A média do BERTimbau em três sementes é 0,797.', 60);
     s.addText('O BERTimbau supera os restantes modelos em 15 a 17 pontos', { placeholder: 'title' });
     s.addChart(pres.charts.BAR, [{ name: 'F1-macro', labels: ['SVM', 'Floresta Aleatória', 'Bi-LSTM', 'BERTimbau'], values: [0.633, 0.659, 0.660, 0.807] }], {
       x: MX, y: 1.75, w: 7.4, h: 4.5, barDir: 'col', chartColors: ['8FA3B8', '8FA3B8', BLUE, NAVY], valAxisMinVal: 0, valAxisMaxVal: 1,
@@ -333,16 +333,16 @@ function novo(seccao, sec, notas, tempo) {
     });
     legenda(s, 'Figura 3 – F1-macro dos quatro modelos no conjunto de teste', MX, 6.3, 7.4);
     cartao(s, 8.4, 1.9, 4.33, 1.45, 'ic');
-    s.addText([{ text: '0,807', options: { fontSize: 34, bold: true, color: NAVY, breakLine: true } }, { text: 'BERTimbau, IC 95% de 0,774 a 0,838', options: { fontSize: 13 } }], { x: 8.6, y: 1.95, w: 4, h: 1.35, margin: 0, valign: 'middle', color: C.text1, isTextBox: true });
+    s.addText([{ text: '0,807', options: { fontSize: 34, bold: true, color: NAVY, breakLine: true } }, { text: 'BERTimbau, IC 95% de 0,774 a 0,838; média de 3 sementes: 0,797', options: { fontSize: 13 } }], { x: 8.6, y: 1.95, w: 4, h: 1.35, margin: 0, valign: 'middle', color: C.text1, isTextBox: true });
     cartao(s, 8.4, 3.55, 4.33, 1.25, 'mcnemar');
     s.addText([{ text: 'p < 10⁻⁴⁷', options: { fontSize: 26, bold: true, color: NAVY, breakLine: true } }, { text: 'McNemar com Bonferroni, nos três pares', options: { fontSize: 13 } }], { x: 8.6, y: 3.6, w: 4, h: 1.15, margin: 0, valign: 'middle', color: C.text1, isTextBox: true });
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 8.4, y: 5.0, w: 4.33, h: 1.2, rectRadius: 0.08, fill: { color: 'FBE9EC' }, line: { color: 'FBE9EC' }, objectName: 'h1' });
-    s.addText([{ text: 'H1 parcialmente confirmada', options: { bold: true, color: RED, breakLine: true } }, { text: 'O Bi-LSTM não se distingue da Floresta Aleatória', options: {} }], { x: 8.6, y: 5.05, w: 4, h: 1.1, fontSize: 14, color: C.text1, margin: 0, valign: 'middle', isTextBox: true });
+    s.addText([{ text: 'H1 parcialmente confirmada', options: { bold: true, color: RED, breakLine: true } }, { text: 'O Bi-LSTM nunca supera a Floresta Aleatória (3 sementes)', options: {} }], { x: 8.6, y: 5.05, w: 4, h: 1.1, fontSize: 14, color: C.text1, margin: 0, valign: 'middle', isTextBox: true });
   }
 
   // ============================================================ 10. H4
   {
-    const s = novo('Resultados', 3, 'Este é o resultado central. No corpus público o F1-macro é 0,919; no piloto angolano cai para 0,533: 38,6 pontos. A maior queda é na Desinformação, de 0,99 para 0,24: o modelo aprendeu o estilo das notícias do Fake.br, não o fenómeno. A estimativa realista para Angola é 0,53, e é essa que o sistema mostra ao analista.', 60);
+    const s = novo('Resultados', 3, 'Este é o resultado central. No corpus público o F1-macro é 0,919; no piloto angolano cai para 0,533: 38,6 pontos. Sem a Mobilização Hostil a diferença mantém-se: 37,3 pontos, com IC de 30,6 a 44,7. Só com os comentários do YouTube sorteados o F1 é 0,535: os itens escolhidos por mim não explicam a lacuna. A maior queda é na Desinformação, de 0,99 para 0,24. Há duas explicações que os dados não separam: o modelo pode ter aprendido o estilo das notícias do Fake.br, ou as etiquetas do piloto são mais amplas. A estimativa realista para Angola é 0,53, e é essa que o sistema mostra ao analista.', 60);
     s.addText('Em conteúdo angolano o F1-macro cai 38,6 pontos (H4)', { placeholder: 'title' });
     s.addChart(pres.charts.BAR, [
       { name: 'Corpus público (n = 3 632)', labels: ['Normal', 'Desinformação', 'Discurso de Ódio', 'Mobilização Hostil'], values: [0.963, 0.992, 0.802, 0] },
@@ -359,10 +359,10 @@ function novo(seccao, sec, notas, tempo) {
     s.addText([{ text: '0,919 → 0,533', options: { fontSize: 30, bold: true, color: RED, breakLine: true } }, { text: 'F1-macro: público → angolano (IC sem sobreposição)', options: { fontSize: 13 } }], { x: 8.75, y: 1.95, w: 3.9, h: 1.6, margin: 0, valign: 'middle', color: C.text1, isTextBox: true });
     s.addText([
       { text: 'Desinformação: 0,99 → 0,24', options: { bold: true, color: NAVY, breakLine: true } },
-      { text: 'O modelo aprendeu o estilo das notícias do Fake.br, não o fenómeno (aprendizagem de atalhos).', options: { breakLine: true } },
+      { text: 'Duas explicações que os dados não separam: estilo das notícias do Fake.br ou etiquetas mais amplas no piloto.', options: { breakLine: true } },
       { text: ' ', options: { breakLine: true, fontSize: 6 } },
       { text: 'H4 confirmada, com reservas', options: { bold: true, color: RED, breakLine: true } },
-      { text: 'Piloto pequeno (n = 355); não separa língua, plataforma e registo.', options: {} },
+      { text: 'Sem Mobilização Hostil: −37,3 p.p. [30,6; 44,7]. Só YouTube sorteado: 0,535.', options: {} },
     ], { x: 8.55, y: 3.85, w: 4.18, h: 2.4, fontSize: 14, color: C.text1, margin: 0, valign: 'top', isTextBox: true });
   }
 
@@ -371,8 +371,8 @@ function novo(seccao, sec, notas, tempo) {
     const O = JSON.parse(fs.readFileSync('ordenacao.json', 'utf8'));
     const pts = (k) => O[k].curva.filter((_, i) => i % 10 === 0).map((v) => Math.round(v * 1000) / 10);
     const labels = ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'];
-    const s = novo('Resultados', 3, 'Como o sistema usa as probabilidades para ordenar a fila, medi também o esforço de revisão. Com o BERTimbau, rever um quarto da fila encontra 80% das ameaças. Mas a ordem reflecte a confiança e não a gravidade: a Mobilização Hostil fica a meio da fila. E 11,8% das ameaças ficam entre os itens que o modelo considera Normais: é isso que justifica a amostra de controlo.', 50);
-    s.addText('A fila encontra 80% das ameaças em 25% da leitura', { placeholder: 'title' });
+    const s = novo('Resultados', 3, 'Como o sistema usa as probabilidades para ordenar a fila, medi também o esforço de revisão. Numa ordenação de todo o teste, com o BERTimbau, rever um quarto encontra 80% das ameaças. Mas a ordem reflecte a confiança e não a gravidade: a Mobilização Hostil fica a meio. E no piloto angolano é pior: é preciso rever 49% para o mesmo resultado, e 28,7% das ameaças ficam entre os itens que o modelo considera Normais, contra 11,8% no teste completo. É isso que justifica a amostra de controlo.', 50);
+    s.addText('No teste, 25% da ordenação encontra 80% das ameaças', { placeholder: 'title' });
     s.addChart(pres.charts.LINE, [
       { name: 'BERTimbau', labels, values: pts('BERTimbau') },
       { name: 'Bi-LSTM', labels, values: pts('Bi-LSTM') },
@@ -387,8 +387,8 @@ function novo(seccao, sec, notas, tempo) {
       showCatAxisTitle: true, catAxisTitle: 'Fracção da fila revista, por prioridade', catAxisTitleFontSize: 11, catAxisTitleColor: '5B6B7F', catAxisTitleFontFace: '+mn-lt',
       objectName: 'grafico-esforco',
     });
-    legenda(s, 'Figura 5 – Curva de esforço de revisão no conjunto de teste', MX, 6.3, 7.6);
-    const pts2 = [['25%', 'da fila revista encontra 80% das ameaças (BERTimbau)', NAVY], ['927.ª', 'posição mediana da Mobilização Hostil: a ordem segue a confiança, não a gravidade', RED], ['11,8%', 'das ameaças ficam entre os Normais: daí a amostra de controlo', GOLD]];
+    legenda(s, 'Figura 5 – Curva de esforço numa ordenação de todo o conjunto de teste', MX, 6.3, 7.6);
+    const pts2 = [['25%', 'da ordenação revista encontra 80% das ameaças (BERTimbau, teste); no piloto, 49%', NAVY], ['927.ª', 'posição mediana da Mobilização Hostil: a ordem segue a confiança, não a gravidade', RED], ['28,7%', 'das ameaças angolanas ficam entre os Normais (11,8% no teste): daí a amostra de controlo', GOLD]];
     pts2.forEach(([v, t, cor], i) => {
       const y = 1.85 + i * 1.5;
       cartao(s, 8.55, y, 4.18, 1.35, `ponto-${i + 1}`);
@@ -399,9 +399,9 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 12. H2
   {
-    const s = novo('Resultados', 3, 'A H2 foi medida com o protótipo num computador modesto, sem GPU: 0,63 segundos por publicação. Com a gravação por sublotes, as primeiras publicações chegam à fila em 36 segundos, e todas em menos de 60 segundos em recolhas até cerca de 64 publicações. A H3 não pôde ser testada por falta de um corpus datado.', 45);
-    s.addText('Cada publicação é processada em 0,63 s, sem GPU (H2)', { placeholder: 'title' });
-    const st = [['0,63 s', 'por publicação: importação, anonimização, classificação e gravação', ic.relogio], ['36 s', 'até as primeiras publicações chegarem à fila, com gravação por sublotes', ic.grafico], ['≤ 64', 'publicações por recolha para todas chegarem em menos de 60 s', ic.monitor]];
+    const s = novo('Resultados', 3, 'A H2 foi medida com o protótipo num computador modesto, sem GPU: 0,6 a 0,7 segundos por publicação. Com a gravação por sublotes, as primeiras publicações chegam à fila em 36 segundos, e todas em menos de 60 segundos em recolhas até cerca de 64 publicações. A H3 não pôde ser testada por falta de um corpus datado.', 45);
+    s.addText('Cada publicação é processada em 0,6–0,7 s, sem GPU (H2)', { placeholder: 'title' });
+    const st = [['0,6–0,7 s', 'por publicação: importação, anonimização, classificação e gravação', ic.relogio], ['36 s', 'até as primeiras publicações chegarem à fila, com gravação por sublotes', ic.grafico], ['≤ 64', 'publicações por recolha para todas chegarem em menos de 60 s', ic.monitor]];
     st.forEach(([v, t, img], i) => {
       const x = MX + i * 4.1;
       cartao(s, x, 1.95, 3.9, 2.9, `h2-${i + 1}`);
@@ -418,13 +418,13 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ Limitações
   {
-    const s = novo('Resultados', 3, 'Antes do sistema, digo o que os resultados não permitem afirmar. O piloto é pequeno, sobretudo na Mobilização Hostil (47 exemplos de teste). 91% do teste é brasileiro. A desinformação disponível são notícias. Não separei língua, plataforma e registo. A utilidade para analistas e a antecipação não foram medidas. E o protótipo não teve auditoria de segurança independente.', 55);
+    const s = novo('Resultados', 3, 'Antes do sistema, digo o que os resultados não permitem afirmar. O piloto é pequeno, sobretudo na Mobilização Hostil (47 exemplos de teste). 91% do teste é brasileiro. A desinformação disponível são notícias. Não separei língua, plataforma e registo. As etiquetas do piloto são mais amplas do que as dos corpora públicos. A utilidade para analistas e a antecipação não foram medidas. E o protótipo não teve auditoria de segurança independente.', 55);
     s.addText('O que estes resultados não permitem afirmar', { placeholder: 'title' });
     const lims = [
       [ic.bd, 'Piloto pequeno', '355 itens de teste; a Mobilização Hostil tem 47, com IC do F1 de 0,42 a 0,66'],
       [ic.globo, 'Teste dominado pelo Brasil', '91% do teste é brasileiro; para Angola, a estimativa é 0,53'],
       [ic.livro, 'Desinformação em notícias', 'A única fonte pública são notícias completas, não comentários'],
-      [ic.lupa, 'Causas não separadas', 'Língua, plataforma e registo variam ao mesmo tempo no piloto'],
+      [ic.lupa, 'Causas não separadas', 'Língua, plataforma, registo e construto das etiquetas variam ao mesmo tempo'],
       [ic.utilizador, 'Uso real por medir', 'Utilidade da fila com analistas e antecipação (H3) por avaliar'],
       [ic.escudo, 'Segurança sem auditoria', 'Boas práticas seguidas, mas sem testes de intrusão independentes'],
     ];
@@ -442,12 +442,12 @@ function novo(seccao, sec, notas, tempo) {
   // ============================================================ 13. Arquitectura
   pres.addSection({ title: 'Sistema' });
   {
-    const s = novo('Sistema', 4, 'Os resultados ditaram o desenho: o modelo não decide, ordena. Arquitectura leve, num único servidor, software livre e sem dependência da Internet. Salvaguardas: anonimização à entrada, sem perfis, revisão humana obrigatória, auditoria. Passo agora para a demonstração.', 60);
+    const s = novo('Sistema', 4, 'Os resultados ditaram o desenho: o modelo não decide, ordena. Arquitectura leve, num único servidor, software livre e sem dependência da Internet. Salvaguardas: pseudonimização à entrada, sem perfis, revisão humana obrigatória, auditoria. Passo agora para a demonstração.', 60);
     s.addText('Arquitectura leve, num único servidor, com o analista no centro', { placeholder: 'title' });
     s.addImage({ path: 'fig3_3_arquitectura.png', x: MX, y: 1.75, w: 5.67, h: 4.46, objectName: 'figura-arquitectura' });
     legenda(s, 'Figura 6 – Arquitectura em camadas do sistema', MX, 6.3, 5.67);
     const sal = [
-      [ic.cadeado, 'Anonimização à entrada', 'Pseudónimo HMAC; telefones, endereços e menções mascarados'],
+      [ic.cadeado, 'Pseudonimização à entrada', 'Pseudónimo HMAC; telefones, endereços e menções mascarados'],
       [ic.olho, 'Sem perfis de pessoas', 'Publicações e agregados por categoria, período e província'],
       [ic.utilizador, 'Decisão sempre humana', 'Fila por analista, revisão cega e amostra de controlo'],
       [ic.escudo, 'Contas e auditoria', 'Palavras-passe derivadas, recuperação sem e-mail, tudo registado'],
@@ -464,14 +464,14 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ 14. Demonstração
   {
-    const s = novo('Sistema', 4, 'ANTES DA SESSÃO: arrancar o servidor com «python uan.py servir --demonstracao», entrar como demo.analista num separador e como demo.supervisor noutro. Ao chegar a este diapositivo, mudar para o navegador (Alt+Tab).\n\nRoteiro com tempos:\n1) Panorama (0:25): o que foi recolhido e sinalizado.\n2) Fila e amostra de controlo (1:00): ler uma publicação, decidir com a tecla, desfazer com U; mostrar as probabilidades e o realce do lugar; referir a revisão cega; abrir a amostra de controlo.\n3) Alertas e mapa (1:00): sino, mapa com cartão de uma província, reprodução semana a semana.\n4) Sobre o modelo (0:30): o desempenho em Angola, 0,53, está à vista do analista.\n5) Fontes e contas (0:40): recolha automática com a estimativa da quota; ligação «Esqueceu-se da palavra-passe?» e pedido ao supervisor.\nPassagens para o navegador e de regresso: 0:25.\n\nSe a demonstração falhar, usar os diapositivos de reserva A, B e C, no fim.', 240);
+    const s = novo('Sistema', 4, 'ANTES DA SESSÃO: arrancar o servidor com arrancar_demonstracao.bat (ou «python uan.py servir --demonstracao»), entrar como demo.supervisor e carregar em Saltar na visita guiada. Ao chegar a este diapositivo, mudar para o navegador (Alt+Tab).\n\nRoteiro com tempos:\n1) Panorama (0:25): o que foi recolhido e sinalizado.\n2) Fila e amostra de controlo (1:00): ler uma publicação, decidir com a tecla, desfazer com U; mostrar as probabilidades e o realce do lugar; referir a revisão cega; abrir a amostra de controlo.\n3) Alertas e mapa (1:00): sino, mapa com cartão de uma província, reprodução semana a semana.\n4) Sobre o modelo (0:30): o desempenho em Angola, 0,53, está à vista do analista.\n5) Lotes e contas (0:40): cada recolha fica registada como lote; Sair e ligação «Esqueceu-se da palavra-passe?» (na demonstração a recolha automática está desligada).\nPassagens para o navegador e de regresso: 0:25.\n\nSe a demonstração falhar, passar o vídeo de reserva (3:24) ou os diapositivos de reserva A, B e C, no fim.', 240);
     s.addText('Demonstração do sistema', { placeholder: 'title' });
     const passos = [
       ['1', 'Panorama', 'O que foi recolhido e o que o modelo sinalizou', '0:25'],
       ['2', 'Fila e amostra de controlo', 'Decidir com as teclas 1 a 4, desfazer, revisão cega', '1:00'],
       ['3', 'Alertas e mapa', 'Sino em tempo real, mapa por província, evolução semanal', '1:00'],
       ['4', 'Sobre o modelo', 'O desempenho em Angola visível para o analista', '0:30'],
-      ['5', 'Fontes e contas', 'Recolha automática, quota do YouTube, recuperação do acesso', '0:40'],
+      ['5', 'Lotes e contas', 'Registo de cada recolha, recuperação do acesso', '0:40'],
     ];
     passos.forEach(([n, t, d, m], i) => {
       const y = 1.8 + i * 0.86;
@@ -499,8 +499,8 @@ function novo(seccao, sec, notas, tempo) {
     const dec = (t, cor, fundo) => ({ text: t, options: { bold: true, color: cor, fill: { color: fundo }, align: 'center' } });
     s.addTable([
       [{ text: 'Hipótese', options: cab }, { text: 'Evidência', options: cab }, { text: 'Decisão', options: { ...cab, align: 'center' } }],
-      ['H1. Modelos profundos superam os clássicos', 'BERTimbau +14,6 a +17,4 p.p., p < 10⁻⁴⁷; Bi-LSTM igual à Floresta Aleatória', dec('Parcialmente confirmada', '9A7400', 'FBF3DA')],
-      ['H2. Menos de 60 s por publicação', '0,63 s em CPU; primeiras na fila em 36 s; todas em < 60 s até 64 por recolha', dec('Confirmada com condições', GREEN, 'E6F2EC')],
+      ['H1. Modelos profundos superam os clássicos', 'BERTimbau +14,6 a +17,4 p.p., p < 10⁻⁴⁷; Bi-LSTM nunca supera a Floresta Aleatória (3 sementes)', dec('Parcialmente confirmada', '9A7400', 'FBF3DA')],
+      ['H2. Menos de 60 s por publicação', '0,6–0,7 s em CPU; primeiras na fila em 36 s; todas em < 60 s até 64 por recolha', dec('Confirmada com condições', GREEN, 'E6F2EC')],
       ['H3. Antecedência ≥ 48 h', 'Sem corpus datado em torno de eventos nem divisão cronológica', dec('Não testada', GREY, LIGHT)],
       ['H4. Queda ≥ 5 p.p. em conteúdo angolano', 'F1-macro 0,919 → 0,533 (−38,6 p.p.); κ 0,88 → 0,44', dec('Confirmada, com reservas', RED, 'FBE9EC')],
     ], { x: MX, y: 2.1, w: W - 2 * MX, colW: [4.0, 5.3, 2.83], fontSize: 14, color: '1B2733', border: { type: 'solid', pt: 0.5, color: LINE }, rowH: [0.5, 0.85, 0.85, 0.85, 0.85], valign: 'middle', objectName: 'tabela-hipoteses' });
@@ -534,7 +534,7 @@ function novo(seccao, sec, notas, tempo) {
 
   // ============================================================ Recomendações
   {
-    const s = novo('Conclusões', 5, 'As recomendações, separadas das conclusões como pedem as Normas da UAN. As três primeiras são condições para qualquer uso institucional; as outras três são trabalho futuro. Fechar com: o investimento que mais rende são dados angolanos anotados.', 50);
+    const s = novo('Conclusões', 5, 'As recomendações, num capítulo próprio, separadas das conclusões como pedem as Normas da UAN. As três primeiras são condições para qualquer uso institucional; as outras três são trabalho futuro. Fechar com: o investimento que mais rende são dados angolanos anotados.', 50);
     s.addText('Recomendações: validar primeiro, usar depois', { placeholder: 'title' });
     const grupos = [
       ['Condições para uso institucional', RED, [
@@ -560,7 +560,7 @@ function novo(seccao, sec, notas, tempo) {
           { x: x + 1.05, y: y + 0.1, w: 4.75, h: 0.95, margin: 0, valign: 'middle', isTextBox: true });
       });
     });
-    s.addText('Fonte: Secção 5.7 da dissertação (nove recomendações; aqui as seis principais).', { x: MX, y: 6.3, w: 9, h: 0.3, fontSize: 10, italic: true, color: GREY, margin: 0, isTextBox: true });
+    s.addText('Fonte: Capítulo 6 da dissertação (oito recomendações; aqui as seis principais).', { x: MX, y: 6.3, w: 9, h: 0.3, fontSize: 10, italic: true, color: GREY, margin: 0, isTextBox: true });
   }
 
   // ============================================================ 17. Encerramento
